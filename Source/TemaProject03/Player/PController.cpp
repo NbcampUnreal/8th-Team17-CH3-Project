@@ -1,5 +1,19 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿#include "PController.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputMappingContext.h"
 
+void APController::BeginPlay()
+{
+    Super::BeginPlay();
 
-#include "PController.h"
-
+    if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+        {
+            if (DefaultMappingContext)
+            {
+                Subsystem->AddMappingContext(DefaultMappingContext, 0);
+            }
+        }
+    }
+}
