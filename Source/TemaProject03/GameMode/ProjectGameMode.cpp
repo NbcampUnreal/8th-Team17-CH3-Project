@@ -1,5 +1,11 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿#include "ProjectGameMode.h"
+#include "TemaProject03/Player/PlayerCharacter.h"
+#include "TemaProject03/Player/PController.h"
 
+AProjectGameMode::AProjectGameMode()
+{
 
-#include "ProjectGameMode.h"
+    DefaultPawnClass = APlayerCharacter::StaticClass();
 
+    PlayerControllerClass = APController::StaticClass();
+}
