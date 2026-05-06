@@ -1,34 +1,292 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
+﻿// EnemyCharacter.cpp
 
 #include "EnemyCharacter.h"
+#include "Components/SphereComponent.h"
+#include "AIController.h"
+#include "TimerManager.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Perception/PawnSensingComponent.h"
 
-// Sets default values
 AEnemyCharacter::AEnemyCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = true;
 
+    // =========================
+    // Detect Sphere
+    // =========================
+
+    // 근처 감지용 Sphere 생성
+    DetectSphere = CreateDefaultSubobject<USphereComponent>(TEXT("DetectSphere"));
+    DetectSphere->SetupAttachment(RootComponent);
+    DetectSphere->SetSphereRadius(DetectRange);
+
+    // DetectSphere는 물리 충돌 없이 Overlap만 확인
+    DetectSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    DetectSphere->SetCollisionObjectType(ECC_WorldDynamic);
+    DetectSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+    DetectSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    DetectSphere->SetGenerateOverlapEvents(true);
+
+    // DetectSphere 안에 Actor가 들어오거나 나갈 때 실행할 함수 연결
+    DetectSphere->OnComponentBeginOverlap.AddDynamic(this, &AEnemyCharacter::OnDetectBeginOverlap);
+    DetectSphere->OnComponentEndOverlap.AddDynamic(this, &AEnemyCharacter::OnDetectEndOverlap);
+
+    // =========================
+    // Attack Sphere
+    // =========================
+
+    // 공격 가능 범위 Sphere 생성
+    AttackSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AttackSphere"));
+    AttackSphere->SetupAttachment(RootComponent);
+    AttackSphere->SetSphereRadius(AttackRange);
+
+    // =========================
+    // Pawn Sensing
+    // =========================
+
+    // AI 시야 감지용 컴포넌트 생성
+    PawnSensing = CreateDefaultSubobject<UPawnSensingComponent>(TEXT("PawnSensing"));
+
+    // 플레이어를 봤을 때 실행할 함수 연결
+    PawnSensing->OnSeePawn.AddDynamic(this, &AEnemyCharacter::OnSeePawn);
 }
 
-// Called when the game starts or when spawned
 void AEnemyCharacter::BeginPlay()
 {
-	Super::BeginPlay();
-	
+    Super::BeginPlay();
+
+    // 체력, 이동속도 초기화
+    InitEnemyStat();
+
+    // 시야 감지 값 초기화
+    InitPawnSensing();
 }
 
-// Called every frame
 void AEnemyCharacter::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+    Super::Tick(DeltaTime);
 
+    if (CanDetectPlayer())
+    {
+        LookAtTarget(DeltaTime);
+        ChaseTarget();
+
+        if (IsTargetInAttackRange())
+        {
+            TryAttack();
+        }
+    }
 }
 
-// Called to bind functionality to input
-void AEnemyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void AEnemyCharacter::InitEnemyStat()
 {
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
+    // 현재 체력을 최대 체력으로 초기화
+    CurrentHealth = MaxHealth;
 
+    // 이동속도 적용
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+    }
 }
 
+void AEnemyCharacter::InitPawnSensing()
+{
+    if (!PawnSensing)
+    {
+        return;
+    }
+
+    // 시야 감지 거리 설정
+    PawnSensing->SightRadius = SightRadius;
+
+    // 시야각 설정
+    PawnSensing->SetPeripheralVisionAngle(VisionAngle);
+
+    // 감지 체크 주기 설정
+    PawnSensing->SensingInterval = SensingInterval;
+}
+
+void AEnemyCharacter::OnDetectBeginOverlap(
+    UPrimitiveComponent* OverlappedComponent,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComp,
+    int32 OtherBodyIndex,
+    bool bFromSweep,
+    const FHitResult& SweepResult
+)
+{
+    // OtherActor가 없거나 자기 자신이면 무시
+    if (!OtherActor || OtherActor == this)
+    {
+        return;
+    }
+
+    // Player 태그가 있는 Actor만 플레이어로 판단
+    if (OtherActor->ActorHasTag(TEXT("Player")))
+    {
+        // 근처 감지 범위 안에 플레이어가 들어온 상태
+        bPlayerInDetectRange = true;
+
+        // 일단 근처 플레이어로 저장
+        TargetPlayer = OtherActor;
+
+        UE_LOG(LogTemp, Warning, TEXT("Player Entered Detect Range: %s"), *OtherActor->GetName());
+    }
+}
+
+void AEnemyCharacter::OnDetectEndOverlap(
+    UPrimitiveComponent* OverlappedComponent,
+    AActor* OtherActor,
+    UPrimitiveComponent* OtherComp,
+    int32 OtherBodyIndex
+)
+{
+    // OtherActor가 없으면 무시
+    if (!OtherActor)
+    {
+        return;
+    }
+
+    // 나간 Actor가 현재 타겟 플레이어라면 감지 해제
+    if (OtherActor == TargetPlayer)
+    {
+        bPlayerInDetectRange = false;
+        bCanSeePlayer = false;
+
+        UE_LOG(LogTemp, Warning, TEXT("Player Left Detect Range: %s"), *OtherActor->GetName());
+
+        TargetPlayer = nullptr;
+    }
+}
+
+void AEnemyCharacter::OnSeePawn(APawn* SeenPawn)
+{
+    // 본 Pawn이 없으면 무시
+    if (!SeenPawn)
+    {
+        return;
+    }
+
+    // Player 태그가 없으면 무시
+    if (!SeenPawn->ActorHasTag(TEXT("Player")))
+    {
+        return;
+    }
+
+    // DetectSphere 안에 들어온 플레이어일 때만 시야 감지 인정
+    if (!bPlayerInDetectRange)
+    {
+        return;
+    }
+
+    // 플레이어를 실제 시야로 본 상태
+    bCanSeePlayer = true;
+
+    // 현재 타겟 플레이어 확정
+    TargetPlayer = SeenPawn;
+
+    UE_LOG(LogTemp, Warning, TEXT("Player Seen By PawnSensing: %s"), *SeenPawn->GetName());
+}
+
+bool AEnemyCharacter::CanDetectPlayer() const
+{
+    return TargetPlayer && (bPlayerInDetectRange || bCanSeePlayer);
+}
+
+void AEnemyCharacter::LookAtTarget(float DeltaTime)
+{
+    if (!TargetPlayer)
+    {
+        return;
+    }
+
+    FVector EnemyLocation = GetActorLocation();
+    FVector TargetLocation = TargetPlayer->GetActorLocation();
+
+    // 위아래로 고개 꺾이지 않게 Z값 맞춤
+    TargetLocation.Z = EnemyLocation.Z;
+
+    FRotator TargetRotation = UKismetMathLibrary::FindLookAtRotation(EnemyLocation, TargetLocation);
+
+    FRotator NewRotation = FMath::RInterpTo(
+        GetActorRotation(),
+        TargetRotation,
+        DeltaTime,
+        RotationSpeed
+    );
+
+    SetActorRotation(NewRotation);
+}
+
+void AEnemyCharacter::ChaseTarget()
+{
+    AAIController* AIController = Cast<AAIController>(GetController());
+
+    if (!AIController || !TargetPlayer)
+    {
+        return;
+    }
+
+    if (IsTargetInAttackRange())
+    {
+        // 공격 범위 안이면 이동 멈춤
+        AIController->StopMovement();
+    }
+    else
+    {
+        // 공격 범위 밖이면 플레이어 추적
+        AIController->MoveToActor(TargetPlayer, AttackRange - 50.0f);
+    }
+}
+
+bool AEnemyCharacter::IsTargetInAttackRange() const
+{
+    if (!TargetPlayer)
+    {
+        return false;
+    }
+
+    float Distance = FVector::Dist(GetActorLocation(), TargetPlayer->GetActorLocation());
+
+    return Distance <= AttackRange;
+}
+
+void AEnemyCharacter::TryAttack()
+{
+    if (!bCanAttack || !TargetPlayer)
+    {
+        return;
+    }
+
+    bCanAttack = false;
+
+    switch (AttackType)
+    {
+    case EEnemyAttackType::Melee:
+        UE_LOG(LogTemp, Warning, TEXT("Melee Attack"));
+        break;
+
+    case EEnemyAttackType::Ranged:
+        UE_LOG(LogTemp, Warning, TEXT("Ranged Attack"));
+        break;
+
+    case EEnemyAttackType::Both:
+        UE_LOG(LogTemp, Warning, TEXT("Both Attack"));
+        break;
+    }
+
+    GetWorldTimerManager().SetTimer(
+        AttackCooldownTimerHandle,
+        this,
+        &AEnemyCharacter::ResetAttack,
+        AttackCooldown,
+        false
+    );
+}
+
+void AEnemyCharacter::ResetAttack()
+{
+    bCanAttack = true;
+}
