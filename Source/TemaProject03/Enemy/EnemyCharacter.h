@@ -9,6 +9,16 @@
 class USphereComponent;
 class UPawnSensingComponent;
 
+// 몬스터 상태 Emum 추가
+UENUM(BlueprintType)
+enum class EEnemyState : uint8
+{
+    Idle UMETA(DisplayName = "Idle"),
+    Chase UMETA(DisplayName = "Chase"),
+    Attack UMETA(DisplayName = "Attack"),
+    Dead UMETA(DisplayName = "Dead")
+};
+
 // 공격 타입 추가 (원거리, 근거리)
 UENUM(BlueprintType)
 enum class EEnemyAttackType : uint8
@@ -58,6 +68,10 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // Both = 둘 다 사용
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Attack")
         EEnemyAttackType AttackType = EEnemyAttackType::Ranged;
+
+        // 현재 Enemy 상태
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|State")
+        EEnemyState EnemyState = EEnemyState::Idle;
 
         // 현재 공격 가능한지 여부
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Attack")
@@ -201,10 +215,20 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 공격 쿨타임 초기화
         void ResetAttack();
 
+        // 상태 갱신
+        void UpdateEnemyState();
+
+        // 현재 상태 실행
+        void HandleEnemyState(float DeltaTime);
+
+        // 상태 변경
+        void SetEnemyState(EEnemyState NewState);
+
         FTimerHandle AttackCooldownTimerHandle;
 public:
 
     void ApplyDamage(float DamageAmount);
+
     // =========================
     // Basic Stat
     // =========================

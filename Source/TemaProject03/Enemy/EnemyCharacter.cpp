@@ -67,16 +67,8 @@ void AEnemyCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (CanDetectPlayer())
-    {
-        LookAtTarget(DeltaTime);
-        ChaseTarget();
-
-        if (IsTargetInAttackRange())
-        {
-            TryAttack();
-        }
-    }
+    UpdateEnemyState();
+    HandleEnemyState(DeltaTime);
 }
 
 void AEnemyCharacter::InitEnemyStat()
@@ -248,7 +240,14 @@ bool AEnemyCharacter::IsTargetInAttackRange() const
         return false;
     }
 
-    float Distance = FVector::Dist(GetActorLocation(), TargetPlayer->GetActorLocation());
+    FVector EnemyLocation = GetActorLocation();
+    FVector TargetLocation = TargetPlayer->GetActorLocation();
+
+    // 높이 차이는 거리 계산에서 제외
+    EnemyLocation.Z = 0.0f;
+    TargetLocation.Z = 0.0f;
+
+    const float Distance = FVector::Dist(EnemyLocation, TargetLocation);
 
     return Distance <= AttackRange;
 }
@@ -289,6 +288,64 @@ void AEnemyCharacter::TryAttack()
 void AEnemyCharacter::ResetAttack()
 {
     bCanAttack = true;
+}
+
+void AEnemyCharacter::UpdateEnemyState()
+{
+    if (!TargetPlayer)
+    {
+        SetEnemyState(EEnemyState::Idle);
+        return;
+    }
+
+    if (IsTargetInAttackRange())
+    {
+        SetEnemyState(EEnemyState::Attack);
+        return;
+    }
+
+    if (CanDetectPlayer())
+    {
+        SetEnemyState(EEnemyState::Chase);
+        return;
+    }
+
+    SetEnemyState(EEnemyState::Idle);
+}
+
+void AEnemyCharacter::HandleEnemyState(float DeltaTime)
+{
+    switch (EnemyState)
+    {
+    case EEnemyState::Idle:
+        break;
+
+    case EEnemyState::Chase:
+        LookAtTarget(DeltaTime);
+        ChaseTarget();
+        break;
+
+    case EEnemyState::Attack:
+        LookAtTarget(DeltaTime);
+        ChaseTarget(); // AttackRange 안이면 StopMovement 처리
+        TryAttack();   // 지금은 로그 출력용
+        break;
+
+    case EEnemyState::Dead:
+        break;
+    }
+}
+
+void AEnemyCharacter::SetEnemyState(EEnemyState NewState)
+{
+    if (EnemyState == NewState)
+    {
+        return;
+    }
+
+    EnemyState = NewState;
+
+    UE_LOG(LogTemp, Warning, TEXT("Enemy State Changed"));
 }
 
 void AEnemyCharacter::ApplyDamage(float DamageAmount)
