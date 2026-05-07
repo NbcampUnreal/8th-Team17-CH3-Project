@@ -1,10 +1,14 @@
 ﻿#include "PlayerCharacter.h"											
-#include "EnhancedInputComponent.h"											
+#include "EnhancedInputComponent.h"
+#include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"											
 #include "GameFramework/SpringArmComponent.h"											
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
+
+#include "DrawDebugHelpers.h"
+#include "TemaProject03/BattelSystem/WeaponBase.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -33,6 +37,16 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Enhanced Input 적용
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+            ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+        {
+            Subsystem->AddMappingContext(DefaultMappingContext, 0);
+        }
+    }
 
     // 카메라 피치 각도 제한
     if (APlayerController* PC = Cast<APlayerController>(GetController()))
@@ -69,7 +83,22 @@ void APlayerCharacter::BeginPlay()
     {
         GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
     }
+
+    if (WeaponClass)
+    {
+        CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass); if (CurrentWeapon)
+        {
+            CurrentWeapon->SetOwner(this); // 중요
+            // 손에 붙이기
+            CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, TEXT("hand_rSocket"));
+            // 크기 조정
+            CurrentWeapon->SetActorScale3D(FVector(0.8f));
+        }
+    }
+
 }
+
+
 
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -83,6 +112,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
         EnhancedInput->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
         EnhancedInput->BindAction(DashAction, ETriggerEvent::Started, this, &APlayerCharacter::Dash);
+        // 발사
+        EnhancedInput->BindAction(FireAction, ETriggerEvent::Started, this, &APlayerCharacter::StartFire);
+
+        // 리로드
+        EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
+
     }
 }
 
@@ -164,3 +199,20 @@ void APlayerCharacter::ResetDashCooldown()
 {
     bIsDashOnCooldown = false;
 }
+
+void APlayerCharacter::StartFire()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->Fire();
+    }
+}
+
+void APlayerCharacter::StartReload()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->Reload();
+    }
+}
+

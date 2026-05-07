@@ -33,24 +33,6 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         virtual void Tick(float DeltaTime) override;
 
     protected:
-        // =========================
-        // Basic Stat
-        // =========================
-
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
-        float MaxHealth = 100.0f;
-
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Stat")
-        float CurrentHealth = 100.0f;
-
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
-        float AttackPower = 30.0f;
-
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
-        float Defense = 10.0f;
-
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
-        float MoveSpeed = 400.0f;
 
         // =========================
         // Attack Setting
@@ -220,4 +202,25 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void ResetAttack();
 
         FTimerHandle AttackCooldownTimerHandle;
+public:
+
+    void ApplyDamage(float DamageAmount);
+    // =========================
+    // Basic Stat
+    // =========================
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
+    float MaxHealth = 100.0f;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Stat")
+    float CurrentHealth = 100.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
+    float AttackPower = 30.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
+    float Defense = 10.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
+    float MoveSpeed = 400.0f;
 };

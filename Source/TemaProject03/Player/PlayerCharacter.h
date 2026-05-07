@@ -13,6 +13,34 @@ class TEMAPROJECT03_API APlayerCharacter : public ACharacter
 public:
     APlayerCharacter();
 
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
+    float CharacterAttack = 50.f;
+
+    // 무기 클래스 (블루프린트 넣을 용도)
+    UPROPERTY(EditAnywhere)
+    class TSubclassOf<class AWeaponBase> WeaponClass;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<class AWeaponBase> RifleClass;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<class AWeaponBase> ShotgunClass;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<class AWeaponBase> PistolClass;
+
+    // 현재 무기
+    UPROPERTY()
+    class AWeaponBase* CurrentWeapon;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    class UInputAction* FireAction;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    class UInputAction* ReloadAction;
+
+
 protected:
     // 카메라 컴포넌트
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -33,6 +61,11 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
     class UInputAction* DashAction;
+
+    // Enhanced Input
+    UPROPERTY(EditAnywhere, Category = "Input")
+    class UInputMappingContext* DefaultMappingContext;
+
 
     // 데이터 테이블 관련
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Data")
@@ -73,6 +106,7 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
     float MaxViewPitch = 80.0f;     // 카메라 최대 각도
 
+
     // 내부 스탯 저장 변수
     float CurrentHealth;
     float AttackDamage;
@@ -87,4 +121,6 @@ protected:
     void Dash(const FInputActionValue& Value);
     void StopDash();
     void ResetDashCooldown();
+    void StartReload();
+    void StartFire();
 };
