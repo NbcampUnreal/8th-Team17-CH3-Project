@@ -3,6 +3,7 @@
 #include "EnemyCharacter.h"
 #include "Components/SphereComponent.h"
 #include "AIController.h"
+#include "NavigationSystem.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -61,6 +62,8 @@ void AEnemyCharacter::BeginPlay()
 
     // 시야 감지 값 초기화
     InitPawnSensing();
+
+    StartLocation = GetActorLocation();
 }
 
 void AEnemyCharacter::Tick(float DeltaTime)
@@ -69,6 +72,56 @@ void AEnemyCharacter::Tick(float DeltaTime)
 
     UpdateEnemyState();
     HandleEnemyState(DeltaTime);
+}
+
+void AEnemyCharacter::PatrolMove()
+{
+    if (!bCanPatrol)
+    {
+        return;
+    }
+
+    AAIController* AIController = Cast<AAIController>(GetController());
+
+    if (!AIController)
+    {
+        return;
+    }
+
+    UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+
+    if (!NavSystem)
+    {
+        return;
+    }
+
+    FNavLocation RandomLocation;
+
+    bool bFoundLocation = NavSystem->GetRandomReachablePointInRadius(
+        StartLocation,
+        PatrolRadius,
+        RandomLocation
+    );
+
+    if (bFoundLocation)
+    {
+        AIController->MoveToLocation(RandomLocation.Location);
+
+        bCanPatrol = false;
+
+        GetWorldTimerManager().SetTimer(
+            PatrolTimerHandle,
+            this,
+            &AEnemyCharacter::ResetPatrol,
+            PatrolWaitTime,
+            false
+        );
+    }
+}
+
+void AEnemyCharacter::ResetPatrol()
+{
+    bCanPatrol = true;
 }
 
 void AEnemyCharacter::InitEnemyStat()
@@ -318,6 +371,7 @@ void AEnemyCharacter::HandleEnemyState(float DeltaTime)
     switch (EnemyState)
     {
     case EEnemyState::Idle:
+        PatrolMove();
         break;
 
     case EEnemyState::Chase:

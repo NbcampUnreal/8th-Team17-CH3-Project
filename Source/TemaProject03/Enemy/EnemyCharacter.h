@@ -107,6 +107,33 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         float RotationSpeed = 5.0f;
 
     protected:
+        // =========================
+        // Patrol Setting
+        // =========================
+
+        // 순찰 반경
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Patrol")
+        float PatrolRadius = 500.0f;
+
+        // 다음 순찰까지 대기 시간
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Patrol")
+        float PatrolWaitTime = 2.0f;
+
+        // 처음 스폰된 위치 저장
+        FVector StartLocation;
+
+        // 다음 순찰 위치로 이동할 수 있는지
+        bool bCanPatrol = true;
+
+        // 순찰 대기 타이머
+        FTimerHandle PatrolTimerHandle;
+
+        // 랜덤 순찰 이동
+        void PatrolMove();
+
+        // 순찰 가능 상태로 복구
+        void ResetPatrol();
+
         // 몬스터 기본 스탯 초기화
         // CurrentHealth = MaxHealth
         // MoveSpeed를 CharacterMovement에 적용
