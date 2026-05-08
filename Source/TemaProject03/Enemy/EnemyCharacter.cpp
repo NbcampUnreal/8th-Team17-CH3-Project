@@ -197,12 +197,14 @@ void AEnemyCharacter::OnDetectEndOverlap(
     // 나간 Actor가 현재 타겟 플레이어라면 감지 해제
     if (OtherActor == TargetPlayer)
     {
-        bPlayerInDetectRange = false;
-        bCanSeePlayer = false;
+        // 플레이어가 범위에서 벗어나면 다시 원위치 코드
+        /*bPlayerInDetectRange = false;
+        bCanSeePlayer = false;*/
 
         UE_LOG(LogTemp, Warning, TEXT("Player Left Detect Range: %s"), *OtherActor->GetName());
 
-        TargetPlayer = nullptr;
+        // 플레이어가 범위에서 벗어나면 다시 원위치 코드
+        //TargetPlayer = nullptr;
     }
 }
 
