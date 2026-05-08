@@ -42,7 +42,7 @@ void APortal::BeginPlay()
     UE_LOG(LogTemp, Log, TEXT("[Portal] %s: Setup complete. Waiting for player..."), *GetName());
 }
 
-void OpenPortal()
+void APortal::OpenPortal()
 {
 
     UE_LOG(LogTemp, Warning, TEXT("[Portal] Received Open Signal from Spawner!"));

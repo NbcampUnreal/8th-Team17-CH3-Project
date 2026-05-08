@@ -1,11 +1,13 @@
 ﻿// EnemyCharacter.cpp
 
 #include "EnemyCharacter.h"
+#include "EnemySpawner.h"
 #include "Components/SphereComponent.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Perception/PawnSensingComponent.h"
 
@@ -421,6 +423,11 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
     if (CurrentHealth <= 0)
     {
         UE_LOG(LogTemp, Warning, TEXT("Enemy Dead"));
+        AActor* SpawnerActor = UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass());
+        if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(SpawnerActor))
+        {
+            Spawner->OnEnemyKilled();
+        }
         Destroy();
     }
 }

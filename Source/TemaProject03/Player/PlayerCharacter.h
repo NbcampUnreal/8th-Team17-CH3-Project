@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
@@ -18,20 +19,11 @@ public:
     float CharacterAttack = 50.f;
 
     // 무기 클래스 (블루프린트 넣을 용도)
-    UPROPERTY(EditAnywhere)
-    class TSubclassOf<class AWeaponBase> WeaponClass;
-
     UPROPERTY(EditAnywhere, Category = "Weapon")
-    TSubclassOf<class AWeaponBase> RifleClass;
-
-    UPROPERTY(EditAnywhere, Category = "Weapon")
-    TSubclassOf<class AWeaponBase> ShotgunClass;
-
-    UPROPERTY(EditAnywhere, Category = "Weapon")
-    TSubclassOf<class AWeaponBase> PistolClass;
+    TSubclassOf<class AWeaponBase> WeaponClass;
 
     // 현재 무기
-    UPROPERTY()
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
     class AWeaponBase* CurrentWeapon;
 
     UPROPERTY(EditAnywhere, Category = "Input")
@@ -101,10 +93,10 @@ protected:
     UAnimMontage* ReloadMontage;
 
 
-    bool bIsDashing = false;       // 대시 상태 체크
+    bool bIsDashing = false;           // 대시 상태 체크
     bool bIsDashOnCooldown = false; // 쿨타임 상태 체크
 
-    FVector DashDirection;           // 대시 방향
+    FVector DashDirection;            // 대시 방향
     float OriginalMaxWalkSpeed;      // 원래 걷기 속도 저장
     float OriginalMaxAcceleration;   // 원래 가속도 저장
 
@@ -132,6 +124,6 @@ protected:
     void Dash(const FInputActionValue& Value);
     void StopDash();
     void ResetDashCooldown();
-    void StartReload();
-    void StartFire();
+    void StartReload(); // 리로드 시작
+    void StartFire();   // 발사 시작
 };
