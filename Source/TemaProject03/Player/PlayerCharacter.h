@@ -90,6 +90,17 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dash")
     float DashCooldown = 2.0f;
 
+    // 애님 몽타주
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+    UAnimMontage* DashMontage;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+    UAnimMontage* FireMontage;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
+    UAnimMontage* ReloadMontage;
+
+
     bool bIsDashing = false;       // 대시 상태 체크
     bool bIsDashOnCooldown = false; // 쿨타임 상태 체크
 

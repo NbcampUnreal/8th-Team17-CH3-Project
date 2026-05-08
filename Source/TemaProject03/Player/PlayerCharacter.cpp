@@ -147,6 +147,11 @@ void APlayerCharacter::Dash(const FInputActionValue& Value)
     // 대시 중이거나 쿨타임 중이면 입력 무시
     if (bIsDashing || bIsDashOnCooldown) return;
 
+    if (DashMontage)
+    {
+        PlayAnimMontage(DashMontage);
+    }
+
     DashDirection = GetLastMovementInputVector().GetSafeNormal();
     if (DashDirection.IsNearlyZero())
     {
@@ -165,7 +170,7 @@ void APlayerCharacter::Dash(const FInputActionValue& Value)
         Movement->SetMovementMode(MOVE_Flying);
 
         //  속도 및 가속도 설정
-        Movement->MaxFlySpeed = DashSpeed; // Flying 모드일 땐 MaxFlySpeed를 사용합니다.
+        Movement->MaxFlySpeed = DashSpeed; // Flying 모드일 땐 MaxFlySpeed를 사용.
         Movement->MaxAcceleration = 10000.f;
 
         //  대시 시작 시 순간적인 속도 초기화 (이전 관성 제거)
