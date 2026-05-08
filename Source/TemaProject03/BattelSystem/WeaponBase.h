@@ -5,8 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WeaponData.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "Effectall/WeaponEffectBase.h"
+#include "Effectall/HeadHunterEffect.h"
+#include "Effectall/ConfidenceEffect.h"
 #include "WeaponBase.generated.h"
 
 UCLASS()
@@ -39,14 +44,25 @@ public:
 
     FTimerHandle ReloadTimerHandle;
 
+    bool bCanFire = true;
+
+    FTimerHandle FireRateTimerHandle;
+
+    void ResetFire();
+
     // 메쉬 추가
     UPROPERTY(VisibleAnywhere)
     UStaticMeshComponent* Mesh;
 
     UPROPERTY(EditAnywhere)
-    UParticleSystem* MuzzleFlash;
+    UNiagaraSystem* MuzzleFlash;
 
+    //효과
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSubclassOf<UWeaponEffectBase> EffectClass;
 
+    UPROPERTY()
+    UWeaponEffectBase* CurrentEffect = nullptr;
 
 public:
     void Fire();
