@@ -2,6 +2,8 @@
 
 #include "EnemySpawner.h"
 #include "EnemyCharacter.h"
+#include "TemaProject03/Gimmick/Portal.h"
+#include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 
 AEnemySpawner::AEnemySpawner()
@@ -14,14 +16,14 @@ void AEnemySpawner::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 스폰카운트와 몬스터의 총 카운트 수량이 같다
-    //AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
-    //if (APortal* Portal = Cast<APortal>(PortalActor))
-    //{
-    //    Portal->SetPortalActive(false);
-    //}
 
-    //CurrentEnemyCount = MaxSpawnCount; // for (int32 i = 0; i < MaxSpawnCount; i++) 위에 추가
+    AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
+    if (APortal* Portal = Cast<APortal>(PortalActor))
+    {
+        Portal->SetPortalActive(false);
+    }
+
+    CurrentEnemyCount = MaxSpawnCount; 
 
     // 게임 시작 시 Enemy 생성
     SpawnEnemies();
@@ -121,26 +123,26 @@ void AEnemySpawner::SpawnEnemies()
 }
 
 // 생성되는 몬스터가 다 죽으면 포탈 생성
-//void AEnemySpawner::OnEnemyKilled()
-//{
-//    // 적이 죽을 때마다 카운트 감소
-//    CurrentEnemyCount--;
-//
-//    UE_LOG(LogTemp, Log, TEXT("Enemy Killed. Remaining: %d"), CurrentEnemyCount);
-//
-//
-//    // 모든 적을 처치했는지 확인
-//    if (CurrentEnemyCount <= 0)
-//    {
-//        UE_LOG(LogTemp, Error, TEXT("All Enemies Defeated! Opening Portal..."));
-//
-//        // 월드에서 포탈을 찾아 OpenPortal 함수 실행
-//        AActor* FoundActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
-//        APortal* TargetPortal = Cast<APortal>(FoundActor);
-//
-//        if (TargetPortal)
-//        {
-//            TargetPortal->OpenPortal();
-//        }
-//    }
-//}
+void AEnemySpawner::OnEnemyKilled()
+{
+    // 적이 죽을 때마다 카운트 감소
+    CurrentEnemyCount--;
+
+    UE_LOG(LogTemp, Log, TEXT("Enemy Killed. Remaining: %d"), CurrentEnemyCount);
+
+
+    // 모든 적을 처치했는지 확인
+    if (CurrentEnemyCount <= 0)
+    {
+        UE_LOG(LogTemp, Error, TEXT("All Enemies Defeated! Opening Portal..."));
+
+        // 월드에서 포탈을 찾아 OpenPortal 함수 실행
+        AActor* FoundActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
+        APortal* TargetPortal = Cast<APortal>(FoundActor);
+
+        if (TargetPortal)
+        {
+            TargetPortal->OpenPortal();
+        }
+    }
+}

@@ -84,22 +84,22 @@ void APlayerCharacter::BeginPlay()
         GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
     }
 
+    // 무기 스폰 및 부착 로직 추가
     if (WeaponClass)
     {
-        CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass); if (CurrentWeapon)
+        CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+        if (CurrentWeapon)
         {
-            CurrentWeapon->SetOwner(this); // 중요
-            // 손에 붙이기
+            CurrentWeapon->SetOwner(this); // 중요: 무기의 Owner를 플레이어로 설정
+
+            // 손에 붙이기 (소켓 이름은 hand_rSocket 기준)
             CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, TEXT("hand_rSocket"));
+
             // 크기 조정
             CurrentWeapon->SetActorScale3D(FVector(0.8f));
         }
     }
-
 }
-
-
-
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -112,12 +112,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         EnhancedInput->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
         EnhancedInput->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
         EnhancedInput->BindAction(DashAction, ETriggerEvent::Started, this, &APlayerCharacter::Dash);
+
         // 발사
         EnhancedInput->BindAction(FireAction, ETriggerEvent::Started, this, &APlayerCharacter::StartFire);
 
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
-
     }
 }
 
@@ -209,7 +209,21 @@ void APlayerCharacter::StartFire()
 {
     if (CurrentWeapon)
     {
+        UE_LOG(LogTemp, Warning, TEXT("StartFire Called!"));
+        UE_LOG(LogTemp, Warning, TEXT("CurrentWeapon is Valid!"));
+
+        // 발사 애니메이션 재생 (없어도 발사는 되도록 if문으로 분리)
+        if (FireMontage)
+        {
+            PlayAnimMontage(FireMontage);
+        }
+
+        // 실제 발사 로직 호출
         CurrentWeapon->Fire();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("CurrentWeapon is NULL!"));
     }
 }
 
@@ -217,7 +231,11 @@ void APlayerCharacter::StartReload()
 {
     if (CurrentWeapon)
     {
+        // 리로드 애니메이션 재생
+        if (ReloadMontage)
+        {
+            PlayAnimMontage(ReloadMontage);
+        }
         CurrentWeapon->Reload();
     }
 }
-
