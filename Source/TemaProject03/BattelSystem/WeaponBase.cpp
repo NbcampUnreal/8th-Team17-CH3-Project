@@ -10,6 +10,8 @@ AWeaponBase::AWeaponBase()
     // 무기 메쉬 생성
     Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
     RootComponent = Mesh;
+
+    Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWeaponBase::BeginPlay()
@@ -25,6 +27,14 @@ void AWeaponBase::BeginPlay()
         if (Data)
         {
             WeaponData = *Data;
+
+            if (CurrentEffect)
+            {
+                WeaponData.MagazineSize =
+                    CurrentEffect->ModifyMagazineSize(
+                        WeaponData.MagazineSize
+                    );
+            }
 
             CurrentAmmo = WeaponData.MagazineSize;
 
@@ -44,6 +54,10 @@ void AWeaponBase::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("WeaponTable is NULL"));
     }
+    if (EffectClass)
+    {
+        CurrentEffect = NewObject<UWeaponEffectBase>(this, EffectClass);
+    }
 }
 
 void AWeaponBase::Fire()
@@ -61,6 +75,13 @@ void AWeaponBase::Fire()
         Reload();
         return;
     }
+
+    if (!bCanFire)
+    {
+        return;
+    }
+
+    bCanFire = false;
 
     CurrentAmmo--; // 탄약 감소
 
@@ -87,7 +108,7 @@ void AWeaponBase::Fire()
 
     // 라인트레이스 시작/끝
     FVector Start = CameraLocation;
-    FVector End = Start + (CameraRotation.Vector() * 1000.f);
+    FVector End = Start + (CameraRotation.Vector() * 10000.f);
 
     FHitResult Hit;
     FCollisionQueryParams Params;
@@ -113,12 +134,21 @@ void AWeaponBase::Fire()
     // 발사 이펙트
     if (MuzzleFlash)
     {
-        UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), MuzzleFlash, MuzzleLocation, MuzzleRotation);
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(),
+            MuzzleFlash,
+            MuzzleLocation,
+            MuzzleRotation
+        );
     }
 
     // 히트 처리
     if (bHit)
     {
+        DrawDebugSphere(GetWorld(), Hit.Location, 20.f, 16, FColor::Green, false, 2.f);
+
+        UE_LOG(LogTemp, Warning, TEXT("Hit Location: %s"), *Hit.Location.ToString());
+
         UE_LOG(LogTemp, Warning, TEXT("HIT START"));
 
         AActor* HitActor = Hit.GetActor();
@@ -131,6 +161,8 @@ void AWeaponBase::Fire()
 
         UE_LOG(LogTemp, Warning, TEXT("HIT ACTOR: %s"), *HitActor->GetName());
 
+        UE_LOG(LogTemp, Warning, TEXT("Hit Bone: %s"), *Hit.BoneName.ToString());
+
         // 적 캐릭터 캐스팅
         AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(HitActor);
 
@@ -142,8 +174,48 @@ void AWeaponBase::Fire()
             // 방어력 적용
             float Damage = Attack - Enemy->Defense;
 
+            float Distance = FVector::Dist(Start, Hit.Location);
+
+            UHeadHunterEffect* HeadHunter = Cast<UHeadHunterEffect>(CurrentEffect);
+
+            UConfidenceEffect* Confidence = Cast<UConfidenceEffect>(CurrentEffect);
+
+            if (Confidence)
+            {
+                if (Hit.BoneName == TEXT("head"))
+                {
+                    Confidence->OnHeadShot();
+
+                    UE_LOG(LogTemp, Warning, TEXT("SELF HEADSHOT"));
+                }
+                else
+                {
+                    Confidence->OnBodyShot();
+
+                    UE_LOG(LogTemp, Warning, TEXT("SELF BODYSHOT"));
+                }
+            }
+
+            if (HeadHunter)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Hit Bone: %s"), *Hit.BoneName.ToString());
+
+                // head 본 맞췄는지 확인
+                if (Hit.BoneName == TEXT("head"))
+                {
+                    HeadHunter->OnHeadShot();
+
+                    UE_LOG(LogTemp, Warning, TEXT("HEADSHOT"));
+                }
+            }
+
+            if (CurrentEffect)
+            {
+                Damage = CurrentEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
+            }
+
             // 최소/최대 데미지 제한
-            Damage = FMath::Clamp(Damage, 29.f, 56.f);
+            Damage = FMath::Clamp(Damage, 29.f, 100.f);
 
             // 데미지 적용
             Enemy->ApplyDamage(Damage);
@@ -151,6 +223,14 @@ void AWeaponBase::Fire()
             UE_LOG(LogTemp, Warning, TEXT("Damage: %f"), Damage);
         }
     }
+
+    GetWorld()->GetTimerManager().SetTimer(
+        FireRateTimerHandle,
+        this,
+        &AWeaponBase::ResetFire,
+        WeaponData.FireRate,
+        false
+    );
 }
 void AWeaponBase::Reload()
 {
@@ -168,10 +248,17 @@ void AWeaponBase::FinishReload()
 
     CurrentAmmo = WeaponData.MagazineSize;
 
+    bCanFire = true;
+
     UE_LOG(LogTemp, Warning, TEXT("Reload Complete"));
 }
 
 int32 AWeaponBase::GetCurrentAmmo() const
 {
     return CurrentAmmo;
+}
+
+void AWeaponBase::ResetFire()
+{
+    bCanFire = true;
 }
