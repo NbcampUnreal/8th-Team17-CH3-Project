@@ -13,7 +13,7 @@ enum class ELobbyMenuState : uint8
 };
 
 UCLASS()
-class MYPROJECT_API ULobbyWidget : public UUserWidget
+class TEMAPROJECT03_API ULobbyWidget : public UUserWidget
 {
     GENERATED_BODY()
 

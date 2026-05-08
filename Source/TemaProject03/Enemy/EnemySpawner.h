@@ -51,4 +51,10 @@ protected:
     // Enemy 생성 함수
     // BeginPlay에서 호출
     void SpawnEnemies();
+
+public:
+    void OnEnemyKilled();
+
+protected:
+    int32 CurrentEnemyCount = 0;
 };
