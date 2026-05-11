@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Engine/DataTable.h"
+#include "EnemyData.h"
 #include "EnemyCharacter.generated.h"
 
 class USphereComponent;
@@ -133,6 +135,9 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
 
         // 순찰 가능 상태로 복구
         void ResetPatrol();
+
+        // DataTable에서 몬스터 데이터 불러오기
+        void LoadEnemyData();
 
         // 몬스터 기본 스탯 초기화
         // CurrentHealth = MaxHealth
@@ -274,4 +279,18 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Stat")
     float MoveSpeed = 400.0f;
+
+    // =========================
+    // Data Table
+    // =========================
+
+    // 사용할 Enemy 데이터 테이블
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Data")
+    UDataTable* EnemyDataTable;
+
+    // DataTable에서 사용할 Row 이름
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Enemy|Data")
+    FName EnemyDataRowName;
+
+    void ApplyEnemyData();
 };

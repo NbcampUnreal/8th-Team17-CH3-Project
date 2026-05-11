@@ -1,0 +1,79 @@
+﻿// EnemyData.h
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/DataTable.h"
+#include "EnemyData.generated.h"
+
+USTRUCT(BlueprintType)
+struct FEnemyData : public FTableRowBase
+{
+    GENERATED_BODY()
+
+public:
+
+    // =========================
+    // Basic Stat
+    // =========================
+
+    // 최대 체력
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float MaxHealth = 100.0f;
+
+    // 공격력
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float AttackPower = 30.0f;
+
+    // 방어력
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float Defense = 10.0f;
+
+    // 이동 속도
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float MoveSpeed = 400.0f;
+
+    // =========================
+    // Detect / Attack
+    // =========================
+
+    // 감지 범위
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float DetectRange = 800.0f;
+
+    // 공격 범위
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float AttackRange = 600.0f;
+
+    // 공격 쿨타임
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float AttackCooldown = 2.0f;
+
+    // =========================
+    // Patrol
+    // =========================
+
+    // 순찰 반경
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float PatrolRadius = 500.0f;
+
+    // 순찰 대기 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float PatrolWaitTime = 2.0f;
+
+    // =========================
+    // Sense
+    // =========================
+
+    // 시야 거리
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float SightRadius = 800.0f;
+
+    // 시야각
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float VisionAngle = 22.5f;
+
+    // 감지 간격
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float SensingInterval = 0.2f;
+};

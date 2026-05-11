@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/DataTable.h"
 #include "EnemySpawner.generated.h"
 
 // 전방 선언
@@ -43,6 +44,18 @@ protected:
     // Spawner 기준 주변 랜덤 위치에 생성
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
     float SpawnRadius = 500.0f;
+
+    // =========================
+    // Enemy Data Setting
+    // =========================
+
+    // 스폰된 Enemy에게 전달할 DataTable
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Enemy Data")
+    UDataTable* EnemyDataTable;
+
+    // DataTable에서 사용할 Row 이름
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Enemy Data")
+    FName EnemyDataRowName;
 
     // =========================
     // Spawn Function

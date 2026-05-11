@@ -2,6 +2,7 @@
 
 #include "EnemyCharacter.h"
 #include "EnemySpawner.h"
+#include "EnemyData.h"
 #include "Components/SphereComponent.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
@@ -58,6 +59,10 @@ AEnemyCharacter::AEnemyCharacter()
 void AEnemyCharacter::BeginPlay()
 {
     Super::BeginPlay();
+
+    StartLocation = GetActorLocation();
+
+    LoadEnemyData();
 
     // 체력, 이동속도 초기화
     InitEnemyStat();
@@ -126,16 +131,66 @@ void AEnemyCharacter::ResetPatrol()
     bCanPatrol = true;
 }
 
+void AEnemyCharacter::LoadEnemyData()
+{
+    if (!EnemyDataTable)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("EnemyDataTable is not set."));
+        return;
+    }
+
+    if (EnemyDataRowName.IsNone())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("EnemyDataRowName is not set."));
+        return;
+    }
+
+    FEnemyData* Data = EnemyDataTable->FindRow<FEnemyData>(
+        EnemyDataRowName,
+        TEXT("Enemy Data Load")
+    );
+
+    if (!Data)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("EnemyData row not found: %s"), *EnemyDataRowName.ToString());
+        return;
+    }
+
+    MaxHealth = Data->MaxHealth;
+    AttackPower = Data->AttackPower;
+    Defense = Data->Defense;
+    MoveSpeed = Data->MoveSpeed;
+
+    DetectRange = Data->DetectRange;
+    AttackRange = Data->AttackRange;
+    AttackCooldown = Data->AttackCooldown;
+
+    PatrolRadius = Data->PatrolRadius;
+    PatrolWaitTime = Data->PatrolWaitTime;
+
+    SightRadius = Data->SightRadius;
+    VisionAngle = Data->VisionAngle;
+    SensingInterval = Data->SensingInterval;
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("Loaded Enemy Data: %s / HP: %.1f / Speed: %.1f / Detect: %.1f"),
+        *EnemyDataRowName.ToString(),
+        MaxHealth,
+        MoveSpeed,
+        DetectRange
+    );
+}
+
 void AEnemyCharacter::InitEnemyStat()
 {
     // 현재 체력을 최대 체력으로 초기화
     CurrentHealth = MaxHealth;
 
     // 이동속도 적용
-    if (GetCharacterMovement())
-    {
-        GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
-    }
+    GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+
+    DetectSphere->SetSphereRadius(DetectRange);
+    AttackSphere->SetSphereRadius(AttackRange);
 }
 
 void AEnemyCharacter::InitPawnSensing()
@@ -430,4 +485,11 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         }
         Destroy();
     }
+}
+
+void AEnemyCharacter::ApplyEnemyData()
+{
+    LoadEnemyData();
+    InitEnemyStat();
+    InitPawnSensing();
 }

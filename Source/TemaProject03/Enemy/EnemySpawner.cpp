@@ -114,10 +114,17 @@ void AEnemySpawner::SpawnEnemies()
         // Enemy 생성 성공 시
         if (SpawnedEnemy)
         {
+
+            SpawnedEnemy->EnemyDataTable = EnemyDataTable;
+            SpawnedEnemy->EnemyDataRowName = EnemyDataRowName;
+
+            SpawnedEnemy->ApplyEnemyData();
+
             // Enemy AI Controller 생성
             SpawnedEnemy->SpawnDefaultController();
 
-            UE_LOG(LogTemp, Warning, TEXT("Enemy Spawned"));
+            UE_LOG(LogTemp, Warning, TEXT("Enemy Spawned With Data Row: %s"),
+                *EnemyDataRowName.ToString());
         }
     }
 }
