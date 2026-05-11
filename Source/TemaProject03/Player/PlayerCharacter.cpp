@@ -93,7 +93,11 @@ void APlayerCharacter::BeginPlay()
             CurrentWeapon->SetOwner(this); // 중요: 무기의 Owner를 플레이어로 설정
 
             // 손에 붙이기 (소켓 이름은 hand_rSocket 기준)
-            CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, TEXT("hand_rSocket"));
+            CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+            CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
+
+            CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
 
             // 크기 조정
             CurrentWeapon->SetActorScale3D(FVector(0.8f));
