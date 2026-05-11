@@ -62,15 +62,11 @@ void AEnemyCharacter::BeginPlay()
 
     StartLocation = GetActorLocation();
 
-    LoadEnemyData();
-
     // 체력, 이동속도 초기화
     InitEnemyStat();
 
     // 시야 감지 값 초기화
     InitPawnSensing();
-
-    StartLocation = GetActorLocation();
 }
 
 void AEnemyCharacter::Tick(float DeltaTime)
