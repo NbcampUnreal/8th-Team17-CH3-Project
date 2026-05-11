@@ -54,9 +54,19 @@ void AWeaponBase::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("WeaponTable is NULL"));
     }
-    if (EffectClass)
+
+    if (EffectClasses.Num() > 0)
     {
-        CurrentEffect = NewObject<UWeaponEffectBase>(this, EffectClass);
+        int32 RandomIndex = FMath::RandRange(0, EffectClasses.Num() - 1);
+
+        TSubclassOf<UWeaponEffectBase> RandomEffect = EffectClasses[RandomIndex];
+
+        CurrentEffect = NewObject<UWeaponEffectBase>(this, RandomEffect);
+
+        if (CurrentEffect)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Current Effect: %s"), *CurrentEffect->GetClass()->GetName());
+        }
     }
 }
 

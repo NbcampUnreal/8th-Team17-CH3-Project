@@ -59,7 +59,7 @@ public:
 
     //효과
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TSubclassOf<UWeaponEffectBase> EffectClass;
+    TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
 
     UPROPERTY()
     UWeaponEffectBase* CurrentEffect = nullptr;
