@@ -1,0 +1,10 @@
+적 스폰 Details 세팅
+BP_EnemyCharacter
+Pawn -> AI Contriller Class -> EnemyAIController
+Auto Possess AI -> Placed in World or Spawned
+
+맵에 
+Place Actors -> Nav Mesh Bounds Volume 세팅
+
+플레이어 Details 세팅
+Actor -> Tags -> 추가 Player 입력
