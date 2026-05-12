@@ -6,6 +6,16 @@
 #include "Engine/DataTable.h"
 #include "WeaponData.generated.h"
 
+UENUM(BlueprintType)
+enum class EFireType : uint8
+{
+    Single UMETA(DisplayName = "Single"),
+    Auto UMETA(DisplayName = "Auto"),
+    Shotgun UMETA(DisplayName = "Shotgun"),
+    Bow UMETA(DisplayName = "Bow"),
+    Bazooka UMETA(DisplayName = "Bazooka")
+};
+
 USTRUCT(BlueprintType)
 struct FWeaponData : public FTableRowBase
 {
@@ -26,6 +36,11 @@ public:
     float FireRate;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EFireType FireType;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     UStaticMesh* WeaponMesh;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UStaticMesh* ProjectileMesh;
 };

@@ -119,6 +119,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
         // 발사
         EnhancedInput->BindAction(FireAction, ETriggerEvent::Started, this, &APlayerCharacter::StartFire);
+        EnhancedInput->BindAction(FireAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopFire);
 
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
@@ -223,7 +224,7 @@ void APlayerCharacter::StartFire()
         }
 
         // 실제 발사 로직 호출
-        CurrentWeapon->Fire();
+        CurrentWeapon->StartFire();
     }
     else
     {
@@ -241,6 +242,14 @@ void APlayerCharacter::StartReload()
             PlayAnimMontage(ReloadMontage);
         }
         CurrentWeapon->Reload();
+    }
+}
+
+void APlayerCharacter::StopFire()
+{
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StopFire();
     }
 }
 

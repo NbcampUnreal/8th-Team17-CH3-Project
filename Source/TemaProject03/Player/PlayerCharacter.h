@@ -129,4 +129,5 @@ protected:
     void ResetDashCooldown();
     void StartReload(); // 리로드 시작
     void StartFire();   // 발사 시작
+    void StopFire();
 };

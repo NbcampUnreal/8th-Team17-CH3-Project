@@ -14,6 +14,8 @@
 #include "Effectall/ConfidenceEffect.h"
 #include "WeaponBase.generated.h"
 
+class ABazookaProjectile;
+
 UCLASS()
 class TEMAPROJECT03_API AWeaponBase : public AActor
 {
@@ -57,6 +59,9 @@ public:
     UPROPERTY(EditAnywhere)
     UNiagaraSystem* MuzzleFlash;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+    TSubclassOf<ABazookaProjectile> BazookaProjectileClass;
+
     //효과
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
@@ -69,4 +74,11 @@ public:
     void Reload();
     void FinishReload();
     int32 GetCurrentAmmo() const;
+
+    void StartFire();
+    void StopFire();
+    void FireShotgun();
+    void FireBow();
+    void FireBazooka();
+    FTimerHandle AutoFireTimerHandle;
 };

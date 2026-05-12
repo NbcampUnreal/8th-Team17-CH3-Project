@@ -1,4 +1,5 @@
 ﻿#include "WeaponBase.h"
+#include "Weapon/BazookaProjectile.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
 #include "TemaProject03/Player/PlayerCharacter.h"
 
@@ -269,4 +270,115 @@ int32 AWeaponBase::GetCurrentAmmo() const
 void AWeaponBase::ResetFire()
 {
     bCanFire = true;
+}
+
+void AWeaponBase::StartFire()
+{
+    switch (WeaponData.FireType)
+    {
+    case EFireType::Single:
+
+        Fire();
+        break;
+
+    case EFireType::Auto:
+
+        Fire();
+
+        GetWorld()->GetTimerManager().SetTimer(AutoFireTimerHandle, this, &AWeaponBase::Fire, WeaponData.FireRate, true);
+
+        break;
+
+    case EFireType::Shotgun:
+
+        FireShotgun();
+        break;
+
+    case EFireType::Bow:
+
+        FireBow();
+        break;
+
+    case EFireType::Bazooka:
+
+        FireBazooka();
+        break;
+    }
+}
+
+void AWeaponBase::StopFire()
+{
+    GetWorld()->GetTimerManager().ClearTimer(AutoFireTimerHandle);
+}
+
+void AWeaponBase::FireShotgun()
+{
+    for (int32 i = 0; i < 8; i++)
+    {
+        Fire();
+    }
+}
+
+void AWeaponBase::FireBow()
+{
+    Fire();
+}
+
+void AWeaponBase::FireBazooka()
+{
+    if (bIsReloading)
+    {
+        return;
+    }
+
+    if (CurrentAmmo <= 0)
+    {
+        Reload();
+        return;
+    }
+
+    if (!bCanFire)
+    {
+        return;
+    }
+
+    bCanFire = false;
+
+    CurrentAmmo--;
+
+    // Projectile 없으면 종료
+    if (!BazookaProjectileClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("BazookaProjectileClass is NULL"));
+        return;
+    }
+
+    // 총구 위치
+    FVector SpawnLocation = Mesh->GetSocketLocation(TEXT("Muzzle"));
+
+    // 총구 회전
+    FRotator SpawnRotation = Mesh->GetSocketRotation(TEXT("Muzzle"));
+
+    // Projectile 생성
+    ABazookaProjectile* Projectile =
+        GetWorld()->SpawnActor<ABazookaProjectile>(BazookaProjectileClass, SpawnLocation, SpawnRotation);
+
+    // 생성 성공 시
+    if (Projectile)
+    {
+        Projectile->SetDamage(WeaponData.Damage);
+        Projectile->SetProjectileMesh(WeaponData.ProjectileMesh);
+
+        Projectile->SetOwner(GetOwner());
+        Projectile->Collision->IgnoreActorWhenMoving(GetOwner(), true);
+
+        UE_LOG(LogTemp, Warning, TEXT("Bazooka Fired"));
+    }
+    GetWorld()->GetTimerManager().SetTimer(
+        FireRateTimerHandle,
+        this,
+        &AWeaponBase::ResetFire,
+        WeaponData.FireRate,
+        false
+    );
 }
