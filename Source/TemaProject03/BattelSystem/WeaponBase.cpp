@@ -224,8 +224,6 @@ void AWeaponBase::Fire()
                 Damage = CurrentEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
             }
 
-            // 최소/최대 데미지 제한
-            Damage = FMath::Clamp(Damage, 29.f, 100.f);
 
             // 데미지 적용
             Enemy->ApplyDamage(Damage);

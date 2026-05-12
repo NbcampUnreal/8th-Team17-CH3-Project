@@ -4,6 +4,7 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "CharacterDataStruct.h"
+#include "TemaProject03/Enemy/EnemySpawner.h"
 #include "PlayerCharacter.generated.h"
 
 UCLASS()
@@ -15,6 +16,8 @@ public:
     APlayerCharacter();
 
 public:
+    void ApplyDamage(float DamageAmount);
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
     float CharacterAttack = 50.f;
 

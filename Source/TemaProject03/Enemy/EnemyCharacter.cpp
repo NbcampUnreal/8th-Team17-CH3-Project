@@ -362,36 +362,34 @@ bool AEnemyCharacter::IsTargetInAttackRange() const
 
 void AEnemyCharacter::TryAttack()
 {
-    if (!bCanAttack || !TargetPlayer)
+    if (!bCanAttack || bIsAttacking || !TargetPlayer)
     {
         return;
     }
 
-    bCanAttack = false;
-
     switch (AttackType)
     {
     case EEnemyAttackType::Melee:
+
         UE_LOG(LogTemp, Warning, TEXT("Melee Attack"));
         break;
 
     case EEnemyAttackType::Ranged:
-        UE_LOG(LogTemp, Warning, TEXT("Ranged Attack"));
-        break;
+    {
+        bIsAttacking = true;
 
-    case EEnemyAttackType::Both:
-        UE_LOG(LogTemp, Warning, TEXT("Both Attack"));
+        GetWorldTimerManager().SetTimer(AttackDelayTimerHandle, this, &AEnemyCharacter::PerformRangedAttack, 3.0f, false);
+
         break;
     }
 
-    GetWorldTimerManager().SetTimer(
-        AttackCooldownTimerHandle,
-        this,
-        &AEnemyCharacter::ResetAttack,
-        AttackCooldown,
-        false
-    );
+    case EEnemyAttackType::Both:
+
+        UE_LOG(LogTemp, Warning, TEXT("Both Attack"));
+        break;
+    }
 }
+    
 
 void AEnemyCharacter::ResetAttack()
 {
@@ -457,6 +455,60 @@ void AEnemyCharacter::SetEnemyState(EEnemyState NewState)
     UE_LOG(LogTemp, Warning, TEXT("Enemy State Changed"));
 }
 
+void AEnemyCharacter::PerformRangedAttack()
+{
+    bIsAttacking = false;
+
+    bCanAttack = false;
+
+    if (!TargetPlayer)
+    {
+        return;
+    }
+
+    if (!IsTargetInAttackRange())
+    {
+        return;
+    }
+
+    APlayerCharacter* Player = Cast<APlayerCharacter>(TargetPlayer);
+
+    if (!Player)
+    {
+        return;
+    }
+
+    FVector Start = GetActorLocation();
+
+    FVector End = Player->GetActorLocation();
+
+    FHitResult Hit;
+
+    FCollisionQueryParams Params;
+
+    Params.AddIgnoredActor(this);
+
+    bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
+
+    DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1.f);
+
+    if (bHit)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *Hit.GetActor()->GetName());
+
+        APlayerCharacter* HitPlayer = Cast<APlayerCharacter>(Hit.GetActor());
+
+        if (HitPlayer)
+        {
+            HitPlayer->ApplyDamage(20.f);
+
+            UE_LOG(LogTemp, Warning, TEXT("Player Hit"));
+        }
+    }
+
+    GetWorldTimerManager().SetTimer(AttackCooldownTimerHandle, this, &AEnemyCharacter::ResetAttack, AttackCooldown, false);
+}
+
 void AEnemyCharacter::ApplyDamage(float DamageAmount)
 {
     CurrentHealth -= DamageAmount;
@@ -464,12 +516,7 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
 
-    GEngine->AddOnScreenDebugMessage(
-        -1,
-        2.f,
-        FColor::Red,
-        FString::Printf(TEXT("HP: %f"), CurrentHealth)
-    );
+    GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("HP: %f"), CurrentHealth));
 
     if (CurrentHealth <= 0)
     {

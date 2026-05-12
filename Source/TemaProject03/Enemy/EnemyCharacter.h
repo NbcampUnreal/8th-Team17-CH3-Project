@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "Engine/DataTable.h"
 #include "EnemyData.h"
+#include "TemaProject03/Player/PlayerCharacter.h"
+#include "DrawDebugHelpers.h"
 #include "EnemyCharacter.generated.h"
 
 class USphereComponent;
@@ -258,6 +260,11 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
 
         FTimerHandle AttackCooldownTimerHandle;
 public:
+    bool bIsAttacking = false;
+
+    FTimerHandle AttackDelayTimerHandle;
+
+    void PerformRangedAttack();
 
     void ApplyDamage(float DamageAmount);
 

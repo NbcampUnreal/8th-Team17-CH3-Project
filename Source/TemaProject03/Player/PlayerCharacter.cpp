@@ -243,3 +243,20 @@ void APlayerCharacter::StartReload()
         CurrentWeapon->Reload();
     }
 }
+
+void APlayerCharacter::ApplyDamage(float DamageAmount)
+{
+    CurrentHealth -= DamageAmount;
+
+
+    UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
+
+    GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("HP: %f"), CurrentHealth));
+
+    if (CurrentHealth <= 0)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Enemy Dead"));
+
+        Destroy();
+    }
+}
