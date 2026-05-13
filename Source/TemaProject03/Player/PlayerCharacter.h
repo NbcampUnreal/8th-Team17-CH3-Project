@@ -35,6 +35,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "Input")
     class UInputAction* ReloadAction;
 
+    // 스킬 입력 액션 (추가됨)
+    UPROPERTY(EditAnywhere, Category = "Input")
+    class UInputAction* SkillAction;
 
 protected:
     // 카메라 컴포넌트
@@ -43,6 +46,10 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class UCameraComponent* CameraComp;
+
+    // 스킬 컴포넌트 (추가됨)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill")
+    class USkillComponent* SkillComp;
 
     // 입력 액션
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -130,4 +137,5 @@ protected:
     void StartReload(); // 리로드 시작
     void StartFire();   // 발사 시작
     void StopFire();
+    void UseSkillInput(); // 스킬 실행
 };
