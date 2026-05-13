@@ -9,6 +9,7 @@
 
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
+#include "SkillComponent.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -28,6 +29,9 @@ APlayerCharacter::APlayerCharacter()
     CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     CameraComp->SetupAttachment(SpringArmComp);
     CameraComp->bUsePawnControlRotation = false;
+
+    // 스킬 컴포넌트 생성 (추가됨)
+    SkillComp = CreateDefaultSubobject<USkillComponent>(TEXT("SkillComp"));
 
     bUseControllerRotationYaw = true;
     bUseControllerRotationPitch = false;
@@ -123,6 +127,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
+
+        // 스킬 실행
+        if (SkillAction)
+        {
+            EnhancedInput->BindAction(SkillAction, ETriggerEvent::Triggered, this, &APlayerCharacter::UseSkillInput);
+        }
     }
 }
 
@@ -251,6 +261,15 @@ void APlayerCharacter::StopFire()
     {
         UE_LOG(LogTemp, Warning, TEXT("StopFire Called!"));
         CurrentWeapon->StopFire();
+    }
+}
+
+// 스킬 실행 함수 구현
+void APlayerCharacter::UseSkillInput()
+{
+    if (SkillComp)
+    {
+        SkillComp->UseSkill();
     }
 }
 
