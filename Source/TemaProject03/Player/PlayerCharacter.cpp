@@ -249,6 +249,7 @@ void APlayerCharacter::StopFire()
 {
     if (CurrentWeapon)
     {
+        UE_LOG(LogTemp, Warning, TEXT("StopFire Called!"));
         CurrentWeapon->StopFire();
     }
 }

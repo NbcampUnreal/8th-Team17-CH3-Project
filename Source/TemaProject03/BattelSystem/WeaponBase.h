@@ -69,6 +69,13 @@ public:
     UPROPERTY()
     UWeaponEffectBase* CurrentEffect = nullptr;
 
+    bool bIsChargingBow = false;
+
+    FTimerHandle BowChargeTimerHandle;
+
+    float BowChargeStartTime = 0.0f;
+    float BowChargeTime = 1.0f;
+
 public:
     void Fire();
     void Reload();

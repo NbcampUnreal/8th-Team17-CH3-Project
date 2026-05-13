@@ -296,7 +296,12 @@ void AWeaponBase::StartFire()
 
     case EFireType::Bow:
 
-        FireBow();
+        bIsChargingBow = true;
+
+        BowChargeStartTime = GetWorld()->GetTimeSeconds();
+
+        UE_LOG(LogTemp, Warning, TEXT("Bow Charging Start"));
+
         break;
 
     case EFireType::Bazooka:
@@ -309,6 +314,31 @@ void AWeaponBase::StartFire()
 void AWeaponBase::StopFire()
 {
     GetWorld()->GetTimerManager().ClearTimer(AutoFireTimerHandle);
+
+    if (WeaponData.FireType == EFireType::Bow)
+    {
+        if (bIsChargingBow)
+        {
+            float ChargeTime =
+                GetWorld()->GetTimeSeconds() - BowChargeStartTime;
+
+            UE_LOG(LogTemp, Warning, TEXT("Charge Time: %f"), ChargeTime);
+
+            // 충분히 차징했는지 확인
+            if (ChargeTime >= BowChargeTime)
+            {
+                FireBow();
+
+                UE_LOG(LogTemp, Warning, TEXT("Bow Fired"));
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Bow Charge Failed"));
+            }
+
+            bIsChargingBow = false;
+        }
+    }
 }
 
 void AWeaponBase::FireShotgun()
