@@ -1,4 +1,4 @@
-﻿#include "Item/Item.h"
+﻿#include "TemaProject03/Item/Item.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -65,7 +65,7 @@ void AHealthRecoveryItem::UseItem_Implementation(APlayerCharacter* Player)
         return;
     }
 
-    Player->RestoreHealthToFull();
+    //Player->RestoreHealthToFull();
 }
 
 void AWeaponItem::UseItem_Implementation(APlayerCharacter* Player)
@@ -75,5 +75,5 @@ void AWeaponItem::UseItem_Implementation(APlayerCharacter* Player)
         return;
     }
 
-    Player->EquipWeapon(WeaponClass);
+    //Player->EquipWeapon(WeaponClass);
 }
