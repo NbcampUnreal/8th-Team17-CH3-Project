@@ -160,6 +160,7 @@ void AEnemyCharacter::LoadEnemyData()
     DetectRange = Data->DetectRange;
     AttackRange = Data->AttackRange;
     AttackCooldown = Data->AttackCooldown;
+    AttackType = Data->AttackType;
 
     PatrolRadius = Data->PatrolRadius;
     PatrolWaitTime = Data->PatrolWaitTime;
@@ -185,8 +186,21 @@ void AEnemyCharacter::InitEnemyStat()
     // 이동속도 적용
     GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
 
-    DetectSphere->SetSphereRadius(DetectRange);
-    AttackSphere->SetSphereRadius(AttackRange);
+    if (DetectSphere)
+    {
+        DetectSphere->SetSphereRadius(DetectRange);
+    }
+
+    if (AttackSphere)
+    {
+        AttackSphere->SetSphereRadius(AttackRange);
+    }
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("Sphere Applied / Detect: %.1f / Attack: %.1f"),
+        DetectSphere ? DetectSphere->GetUnscaledSphereRadius() : -1.0f,
+        AttackSphere ? AttackSphere->GetUnscaledSphereRadius() : -1.0f
+    );
 }
 
 void AEnemyCharacter::InitPawnSensing()
@@ -322,22 +336,32 @@ void AEnemyCharacter::LookAtTarget(float DeltaTime)
 
 void AEnemyCharacter::ChaseTarget()
 {
+    UE_LOG(LogTemp, Warning, TEXT("ChaseTarget Called"));
+
     AAIController* AIController = Cast<AAIController>(GetController());
 
-    if (!AIController || !TargetPlayer)
+    if (!AIController)
     {
+        UE_LOG(LogTemp, Warning, TEXT("AIController is NULL"));
+        return;
+    }
+
+    if (!TargetPlayer)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("TargetPlayer is NULL"));
         return;
     }
 
     if (IsTargetInAttackRange())
     {
-        // 공격 범위 안이면 이동 멈춤
+        UE_LOG(LogTemp, Warning, TEXT("Stop Movement / In Attack Range"));
         AIController->StopMovement();
     }
     else
     {
-        // 공격 범위 밖이면 플레이어 추적
-        AIController->MoveToActor(TargetPlayer, AttackRange - 50.0f);
+        UE_LOG(LogTemp, Warning, TEXT("Move To Player"));
+
+        AIController->MoveToActor(TargetPlayer, 50.0f);
     }
 }
 
@@ -371,7 +395,18 @@ void AEnemyCharacter::TryAttack()
     {
     case EEnemyAttackType::Melee:
 
+        bIsAttacking = true;
+
         UE_LOG(LogTemp, Warning, TEXT("Melee Attack"));
+
+        GetWorldTimerManager().SetTimer(
+            AttackDelayTimerHandle,
+            this,
+            &AEnemyCharacter::PerformMeleeAttack,
+            0.5f,
+            false
+        );
+
         break;
 
     case EEnemyAttackType::Ranged:
@@ -389,8 +424,59 @@ void AEnemyCharacter::TryAttack()
         break;
     }
 }
-    
 
+
+// 근접 공격 
+void AEnemyCharacter::PerformMeleeAttack()
+{
+    bIsAttacking = false;
+    bCanAttack = false;
+
+    if (!TargetPlayer)
+    {
+        bCanAttack = true;
+        return;
+    }
+
+    if (!IsTargetInAttackRange())
+    {
+        GetWorldTimerManager().SetTimer(
+            AttackCooldownTimerHandle,
+            this,
+            &AEnemyCharacter::ResetAttack,
+            AttackCooldown,
+            false
+        );
+        return;
+    }
+
+    APlayerCharacter* Player = Cast<APlayerCharacter>(TargetPlayer);
+
+    if (!Player)
+    {
+        GetWorldTimerManager().SetTimer(
+            AttackCooldownTimerHandle,
+            this,
+            &AEnemyCharacter::ResetAttack,
+            AttackCooldown,
+            false
+        );
+        return;
+    }
+
+    Player->ApplyDamage(AttackPower);
+
+    UE_LOG(LogTemp, Warning, TEXT("Melee Hit Player / Damage: %.1f"), AttackPower);
+
+    GetWorldTimerManager().SetTimer(
+        AttackCooldownTimerHandle,
+        this,
+        &AEnemyCharacter::ResetAttack,
+        AttackCooldown,
+        false
+    );
+}
+    
 void AEnemyCharacter::ResetAttack()
 {
     bCanAttack = true;

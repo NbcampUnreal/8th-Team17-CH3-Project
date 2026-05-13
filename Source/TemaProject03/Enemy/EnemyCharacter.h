@@ -6,31 +6,13 @@
 #include "GameFramework/Character.h"
 #include "Engine/DataTable.h"
 #include "EnemyData.h"
+#include "EnemyTypes.h"
 #include "TemaProject03/Player/PlayerCharacter.h"
 #include "DrawDebugHelpers.h"
 #include "EnemyCharacter.generated.h"
 
 class USphereComponent;
 class UPawnSensingComponent;
-
-// 몬스터 상태 Emum 추가
-UENUM(BlueprintType)
-enum class EEnemyState : uint8
-{
-    Idle UMETA(DisplayName = "Idle"),
-    Chase UMETA(DisplayName = "Chase"),
-    Attack UMETA(DisplayName = "Attack"),
-    Dead UMETA(DisplayName = "Dead")
-};
-
-// 공격 타입 추가 (원거리, 근거리)
-UENUM(BlueprintType)
-enum class EEnemyAttackType : uint8
-{
-    Melee UMETA(DisplayName = "Melee"),
-    Ranged UMETA(DisplayName = "Ranged"),
-    Both UMETA(DisplayName = "Both")
-};
 
 UCLASS()
 class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
@@ -65,13 +47,6 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 공격 쿨타임
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Attack")
         float AttackCooldown = 2.0f;
-
-        // 공격 타입
-        // Melee = 근접 공격
-        // Ranged = 원거리 공격
-        // Both = 둘 다 사용
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Attack")
-        EEnemyAttackType AttackType = EEnemyAttackType::Ranged;
 
         // 현재 Enemy 상태
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|State")
@@ -246,6 +221,9 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 공격 시도
         void TryAttack();
 
+        // 근접 공격
+        void PerformMeleeAttack();
+
         // 공격 쿨타임 초기화
         void ResetAttack();
 
@@ -300,4 +278,11 @@ public:
     FName EnemyDataRowName;
 
     void ApplyEnemyData();
+
+    // 공격 타입
+    // Melee = 근접 공격
+    // Ranged = 원거리 공격
+    // Both = 둘 다 사용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Attack")
+    EEnemyAttackType AttackType = EEnemyAttackType::Ranged;
 };

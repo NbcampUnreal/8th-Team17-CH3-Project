@@ -265,7 +265,7 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
 
     if (CurrentHealth <= 0)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Enemy Dead"));
+        UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
 
         Destroy();
     }

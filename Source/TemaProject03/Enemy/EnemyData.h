@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EnemyTypes.h"
 #include "Engine/DataTable.h"
 #include "EnemyData.generated.h"
 
@@ -48,6 +49,10 @@ public:
     // 공격 쿨타임
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float AttackCooldown = 2.0f;
+
+    // 공격 타입
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    EEnemyAttackType AttackType = EEnemyAttackType::Melee;
 
     // =========================
     // Patrol
