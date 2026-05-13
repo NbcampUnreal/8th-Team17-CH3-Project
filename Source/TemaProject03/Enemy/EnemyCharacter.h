@@ -224,6 +224,27 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 근접 공격
         void PerformMeleeAttack();
 
+        // 공격 방식
+
+        enum class EMeleeEvadePhase
+        {
+            None,
+            Back,
+            Side
+        };
+        bool bIsEvading = false;
+        EMeleeEvadePhase EvadePhase = EMeleeEvadePhase::None;
+
+        float EvadeTimer = 0.0f;
+        float BackEvadeTime = 0.8f;
+        float SideEvadeTime = 1.0f;
+
+        int32 SideDirectionSign = 1;
+
+        void StartMeleeEvade();
+        void HandleMeleeEvade(float DeltaTime);
+        void EndMeleeEvade();
+
         // 공격 쿨타임 초기화
         void ResetAttack();
 

@@ -336,33 +336,27 @@ void AEnemyCharacter::LookAtTarget(float DeltaTime)
 
 void AEnemyCharacter::ChaseTarget()
 {
-    UE_LOG(LogTemp, Warning, TEXT("ChaseTarget Called"));
-
     AAIController* AIController = Cast<AAIController>(GetController());
 
-    if (!AIController)
+    if (!AIController || !TargetPlayer)
     {
-        UE_LOG(LogTemp, Warning, TEXT("AIController is NULL"));
-        return;
-    }
-
-    if (!TargetPlayer)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("TargetPlayer is NULL"));
         return;
     }
 
     if (IsTargetInAttackRange())
     {
-        UE_LOG(LogTemp, Warning, TEXT("Stop Movement / In Attack Range"));
         AIController->StopMovement();
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Move To Player"));
 
-        AIController->MoveToActor(TargetPlayer, 50.0f);
+        if (GetCharacterMovement())
+        {
+            GetCharacterMovement()->StopMovementImmediately();
+        }
+
+        return;
     }
+
+    // 공격 범위 밖이면 계속 플레이어 추격
+    AIController->MoveToActor(TargetPlayer, 5.0f);
 }
 
 bool AEnemyCharacter::IsTargetInAttackRange() const
@@ -432,13 +426,7 @@ void AEnemyCharacter::PerformMeleeAttack()
     bIsAttacking = false;
     bCanAttack = false;
 
-    if (!TargetPlayer)
-    {
-        bCanAttack = true;
-        return;
-    }
-
-    if (!IsTargetInAttackRange())
+    if (!TargetPlayer || !IsTargetInAttackRange())
     {
         GetWorldTimerManager().SetTimer(
             AttackCooldownTimerHandle,
@@ -452,21 +440,14 @@ void AEnemyCharacter::PerformMeleeAttack()
 
     APlayerCharacter* Player = Cast<APlayerCharacter>(TargetPlayer);
 
-    if (!Player)
+    if (Player)
     {
-        GetWorldTimerManager().SetTimer(
-            AttackCooldownTimerHandle,
-            this,
-            &AEnemyCharacter::ResetAttack,
-            AttackCooldown,
-            false
-        );
-        return;
+        Player->ApplyDamage(AttackPower);
+
+        UE_LOG(LogTemp, Warning, TEXT("Melee Hit Player / Damage: %.1f"), AttackPower);
+
+        StartMeleeEvade();
     }
-
-    Player->ApplyDamage(AttackPower);
-
-    UE_LOG(LogTemp, Warning, TEXT("Melee Hit Player / Damage: %.1f"), AttackPower);
 
     GetWorldTimerManager().SetTimer(
         AttackCooldownTimerHandle,
@@ -477,9 +458,83 @@ void AEnemyCharacter::PerformMeleeAttack()
     );
 }
     
+void AEnemyCharacter::StartMeleeEvade()
+{
+    bIsEvading = true;
+    EvadePhase = EMeleeEvadePhase::Back;
+    EvadeTimer = 0.0f;
+
+    SideDirectionSign *= -1;
+
+    AAIController* AIController = Cast<AAIController>(GetController());
+    if (AIController)
+    {
+        AIController->StopMovement();
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Start Melee Evade"));
+}
+
+void AEnemyCharacter::HandleMeleeEvade(float DeltaTime)
+{
+    if (!TargetPlayer)
+    {
+        EndMeleeEvade();
+        return;
+    }
+
+    EvadeTimer += DeltaTime;
+
+    FVector EnemyLocation = GetActorLocation();
+    FVector TargetLocation = TargetPlayer->GetActorLocation();
+
+    FVector ToTarget = TargetLocation - EnemyLocation;
+    ToTarget.Z = 0.0f;
+    ToTarget.Normalize();
+
+    FVector MoveDirection = FVector::ZeroVector;
+
+    if (EvadePhase == EMeleeEvadePhase::Back)
+    {
+        MoveDirection = -ToTarget;
+
+        if (EvadeTimer >= BackEvadeTime)
+        {
+            EvadePhase = EMeleeEvadePhase::Side;
+            EvadeTimer = 0.0f;
+        }
+    }
+    else if (EvadePhase == EMeleeEvadePhase::Side)
+    {
+        FVector RightDirection = FVector::CrossProduct(FVector::UpVector, ToTarget);
+        RightDirection.Normalize();
+
+        MoveDirection = RightDirection * SideDirectionSign;
+
+        if (EvadeTimer >= SideEvadeTime)
+        {
+            EndMeleeEvade();
+            return;
+        }
+    }
+
+    AddMovementInput(MoveDirection, 0.6f);
+}
+
+void AEnemyCharacter::EndMeleeEvade()
+{
+    bIsEvading = false;
+    EvadePhase = EMeleeEvadePhase::None;
+    EvadeTimer = 0.0f;
+
+    UE_LOG(LogTemp, Warning, TEXT("End Melee Evade"));
+}
+
 void AEnemyCharacter::ResetAttack()
 {
     bCanAttack = true;
+
+    UE_LOG(LogTemp, Warning, TEXT("Attack Cooldown End"));
 }
 
 void AEnemyCharacter::UpdateEnemyState()
@@ -507,6 +562,13 @@ void AEnemyCharacter::UpdateEnemyState()
 
 void AEnemyCharacter::HandleEnemyState(float DeltaTime)
 {
+    if (bIsEvading)
+    {
+        LookAtTarget(DeltaTime);
+        HandleMeleeEvade(DeltaTime);
+        return;
+    }
+
     switch (EnemyState)
     {
     case EEnemyState::Idle:
@@ -520,8 +582,14 @@ void AEnemyCharacter::HandleEnemyState(float DeltaTime)
 
     case EEnemyState::Attack:
         LookAtTarget(DeltaTime);
-        ChaseTarget(); // AttackRange 안이면 StopMovement 처리
-        TryAttack();   // 지금은 로그 출력용
+
+        ChaseTarget();
+
+        if (IsTargetInAttackRange() && bCanAttack)
+        {
+            TryAttack();
+        }
+
         break;
 
     case EEnemyState::Dead:
