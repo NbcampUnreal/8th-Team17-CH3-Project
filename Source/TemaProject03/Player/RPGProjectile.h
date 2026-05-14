@@ -27,6 +27,14 @@ protected:
     UPROPERTY(VisibleAnywhere, Category = "Components")
     class UStaticMeshComponent* MeshComp;
 
+    // 폭발 나이아가라 이펙트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Effects")
+    class UNiagaraSystem* ExplosionEffect;
+
+    // 폭발 사운드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Effects")
+    class USoundBase* ExplosionSound;
+
     // 충돌 이벤트
     UFUNCTION()
     void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,

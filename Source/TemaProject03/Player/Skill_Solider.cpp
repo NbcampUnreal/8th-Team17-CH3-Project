@@ -59,11 +59,31 @@ bool USkill_Solider::ActivateSkill(AActor* Owner)
     ACharacter* Character = Cast<ACharacter>(Owner);
     UCameraComponent* Camera = Character ? Character->FindComponentByClass<UCameraComponent>() : nullptr;
 
-    // 스폰 위치: 카메라 앞 또는 캐릭터 앞
-    FVector SpawnLocation = Camera
-        ? Camera->GetComponentLocation() + (Camera->GetForwardVector() * 100.f)
-        : Owner->GetActorLocation() + (Owner->GetActorForwardVector() * 100.f);
+    FVector SpawnLocation;
 
+    // 장착된 RPG 액터에 Muzzle 컴포넌트가 있으면 그 위치에서 탄두를 스폰
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(Owner))
+    {
+        FTransform MuzzleTransform;
+        if (Player->GetRPGMuzzleTransform(MuzzleTransform))
+        {
+            SpawnLocation = MuzzleTransform.GetLocation();
+        }
+        else
+        {
+            SpawnLocation = Camera
+                ? Camera->GetComponentLocation() + (Camera->GetForwardVector() * 100.f)
+                : Owner->GetActorLocation() + (Owner->GetActorForwardVector() * 100.f);
+        }
+    }
+    else
+    {
+        SpawnLocation = Camera
+            ? Camera->GetComponentLocation() + (Camera->GetForwardVector() * 100.f)
+            : Owner->GetActorLocation() + (Owner->GetActorForwardVector() * 100.f);
+    }
+
+    // 발사 방향은 카메라 에임 방향을 사용
     FRotator SpawnRotation = Camera
         ? Camera->GetComponentRotation()
         : Owner->GetActorRotation();

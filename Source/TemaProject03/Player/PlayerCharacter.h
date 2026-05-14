@@ -18,6 +18,9 @@ public:
 public:
     void ApplyDamage(float DamageAmount);
 
+    // RPG 탄두 스폰 위치를 스킬에서 가져가기 위한 함수
+    bool GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) const;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
     float CharacterAttack = 50.f;
 
@@ -50,6 +53,34 @@ protected:
     // 스킬 컴포넌트 (추가됨)
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Skill")
     class USkillComponent* SkillComp;
+
+    // Q 스킬 사용 중 잠깐 들고 있을 RPG 액터 클래스
+    // BP_RPGWeaponActor를 여기에 넣으면 됨
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|RPG")
+    TSubclassOf<AActor> RPGWeaponActorClass;
+
+    // 현재 장착 중인 RPG 액터
+    UPROPERTY()
+    AActor* EquippedRPGActor;
+
+    // RPG를 카메라에 붙였을 때 위치
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|RPG")
+    FVector RPGAttachLocation = FVector(30.f, 20.f, -20.f);
+
+    // RPG를 카메라에 붙였을 때 회전
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|RPG")
+    FRotator RPGAttachRotation = FRotator(0.f, 180.f, 0.f);
+
+    // RPG를 카메라에 붙였을 때 크기
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|RPG")
+    FVector RPGAttachScale = FVector(1.0f);
+
+    // RPG를 들고 있는 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|RPG")
+    float RPGEquipDuration = 0.7f;
+
+    // RPG 해제 타이머
+    FTimerHandle RPGUnequipTimerHandle;
 
     // 입력 액션
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -140,7 +171,14 @@ protected:
     void StopFire();
     void UseSkillInput(); // 스킬 실행
 
+
 public:
     float GetCurrentHealth() const { return CurrentHealth; }
     float GetMaxHealth() const { return MaxHealth; }
+
+    // RPG 액터 장착
+    bool EquipRPG();
+
+    // RPG 장착 해제
+    void UnequipRPG();
 };

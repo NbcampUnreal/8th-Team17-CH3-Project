@@ -3,6 +3,9 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 #include "Engine/EngineTypes.h"
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
@@ -164,14 +167,26 @@ void ARPGProjectile::Explode()
 
     bHasExploded = true;
 
+    // 이펙트 재생
+    if (ExplosionEffect)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), GetActorRotation());
+    }
+
+    // 사운드 재생
+    if (ExplosionSound)
+    {
+        UGameplayStatics::PlaySoundAtLocation(this, ExplosionSound, GetActorLocation());
+    }
+
     UE_LOG(LogTemp, Warning,
         TEXT("[RPGProjectile] Explode! Location: %s, Radius: %.1f"),
         *GetActorLocation().ToString(),
         ExplosionRadius);
 
     // 디버그: 주황색 구체 시각화
-    DrawDebugSphere(GetWorld(), GetActorLocation(),
-        ExplosionRadius, 16, FColor::Orange, false, 2.0f);
+    //DrawDebugSphere(GetWorld(), GetActorLocation(),
+    //    ExplosionRadius, 16, FColor::Orange, false, 2.0f);
 
     TArray<AActor*> OverlappedActors;
 

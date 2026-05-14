@@ -25,7 +25,7 @@ public:
     UPROPERTY()
     USkillBase* CurrentSkill;
 
-    void UseSkill();
+    bool UseSkill();
 
     // 남은 쿨타임 시간 반환 (UI 연결용)
     float GetRemainingCooldown() const;

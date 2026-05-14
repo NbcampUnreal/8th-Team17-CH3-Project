@@ -27,36 +27,37 @@ void USkillComponent::BeginPlay()
     }
 }
 
-void USkillComponent::UseSkill()
+bool USkillComponent::UseSkill()
 {
     if (!CurrentSkill)
     {
         UE_LOG(LogTemp, Warning, TEXT("[SkillComp] No Skill Assigned!"));
-        return;
+        return false;
     }
 
     if (!CurrentSkill->CanUseSkill())
     {
         UE_LOG(LogTemp, Warning, TEXT("[SkillComp] On Cooldown! Remaining: %.1f sec"),
             GetRemainingCooldown());
-        return;
+        return false;
     }
 
     AActor* Owner = GetOwner();
     if (!Owner)
     {
         UE_LOG(LogTemp, Warning, TEXT("[SkillComp] Owner is NULL!"));
-        return;
+        return false;
     }
 
     // 스킬 발동이 성공했을 때만 쿨타임 시작
     if (!CurrentSkill->ActivateSkill(Owner))
     {
         UE_LOG(LogTemp, Warning, TEXT("[SkillComp] Skill Activate Failed!"));
-        return;
+        return false;
     }
 
     CurrentSkill->StartCooldown(GetWorld());
+    return true;
 }
 
 float USkillComponent::GetRemainingCooldown() const
