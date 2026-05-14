@@ -22,6 +22,7 @@ public:
     UUserWidget* HUDWidgetInstance;
 
     void UpdateHUD();
+    void TriggerUICustomEvent(FName EventName);
 
 protected:
     virtual void BeginPlay() override;

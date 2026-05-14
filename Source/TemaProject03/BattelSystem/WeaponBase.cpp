@@ -2,6 +2,7 @@
 #include "Weapon/BazookaProjectile.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
 #include "TemaProject03/Player/PlayerCharacter.h"
+#include "TemaProject03/Player/PController.h"
 
 
 AWeaponBase::AWeaponBase()
@@ -228,6 +229,11 @@ void AWeaponBase::Fire()
 
             // 데미지 적용
             Enemy->ApplyDamage(Damage);
+            // Hit 이펙트 출력
+            if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+            {
+                PlayerController->TriggerUICustomEvent(FName("ShowHitMarker"));
+            }
 
             UE_LOG(LogTemp, Warning, TEXT("Damage: %f"), Damage);
         }

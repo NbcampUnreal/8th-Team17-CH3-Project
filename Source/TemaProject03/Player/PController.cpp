@@ -50,3 +50,17 @@ void APController::UpdateHUD()
             }
     }
 }
+
+void APController::TriggerUICustomEvent(FName EventName)
+{
+    if (HUDWidgetInstance)
+    {
+        UFunction* CustomEvent = HUDWidgetInstance->FindFunction(EventName);
+
+        if (CustomEvent)
+        {
+            HUDWidgetInstance->ProcessEvent(CustomEvent, nullptr);
+            UE_LOG(LogTemp, Warning, TEXT("TriggerUICustomEvent Call is Succeeded."))
+        }
+    }
+}
