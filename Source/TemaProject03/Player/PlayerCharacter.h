@@ -121,6 +121,7 @@ protected:
 
 
     // 내부 스탯 저장 변수
+    float MaxHealth;
     float CurrentHealth;
     float AttackDamage;
     float Defense;
@@ -138,4 +139,8 @@ protected:
     void StartFire();   // 발사 시작
     void StopFire();
     void UseSkillInput(); // 스킬 실행
+
+public:
+    float GetCurrentHealth() const { return CurrentHealth; }
+    float GetMaxHealth() const { return MaxHealth; }
 };

@@ -10,6 +10,7 @@
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "SkillComponent.h"
+#include "PController.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -69,6 +70,7 @@ void APlayerCharacter::BeginPlay()
 
         if (StatRow)
         {
+            MaxHealth = StatRow->Health;
             CurrentHealth = StatRow->Health;
             AttackDamage = StatRow->AttackDamage;
             Defense = StatRow->Defense;
@@ -276,7 +278,10 @@ void APlayerCharacter::UseSkillInput()
 void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
     CurrentHealth -= DamageAmount;
-
+    if (APController* PlayerController = Cast<APController>(GetController()))
+    {
+        PlayerController->UpdateHUD();
+    }
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
 
