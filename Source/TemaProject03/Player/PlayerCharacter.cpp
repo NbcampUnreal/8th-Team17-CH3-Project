@@ -1,11 +1,12 @@
-﻿#include "PlayerCharacter.h"											
+﻿#include "PlayerCharacter.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Camera/CameraComponent.h"											
-#include "GameFramework/SpringArmComponent.h"											
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/SceneComponent.h"
 
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
@@ -16,7 +17,7 @@ APlayerCharacter::APlayerCharacter()
 {
     PrimaryActorTick.bCanEverTick = false;
 
-    // 1인칭 카메라											
+    // 1인칭 카메라
     SpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
     SpringArmComp->SetupAttachment(RootComponent);
 
@@ -133,9 +134,37 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         // 스킬 실행
         if (SkillAction)
         {
-            EnhancedInput->BindAction(SkillAction, ETriggerEvent::Triggered, this, &APlayerCharacter::UseSkillInput);
+            EnhancedInput->BindAction(SkillAction, ETriggerEvent::Started, this, &APlayerCharacter::UseSkillInput);
         }
     }
+}
+
+bool APlayerCharacter::GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) const
+{
+    if (!EquippedRPGActor)
+    {
+        return false;
+    }
+
+    TArray<USceneComponent*> SceneComponents;
+    EquippedRPGActor->GetComponents<USceneComponent>(SceneComponents);
+
+    for (USceneComponent* SceneComponent : SceneComponents)
+    {
+        if (SceneComponent && SceneComponent->GetName() == TEXT("Muzzle"))
+        {
+            OutMuzzleTransform = SceneComponent->GetComponentTransform();
+            return true;
+        }
+    }
+
+    // Muzzle 컴포넌트가 없으면 RPG 액터 앞쪽 위치를 임시 총구로 사용
+    OutMuzzleTransform = EquippedRPGActor->GetActorTransform();
+    OutMuzzleTransform.SetLocation(
+        EquippedRPGActor->GetActorLocation() + EquippedRPGActor->GetActorForwardVector() * 100.0f
+    );
+
+    return true;
 }
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
@@ -269,15 +298,132 @@ void APlayerCharacter::StopFire()
 // 스킬 실행 함수 구현
 void APlayerCharacter::UseSkillInput()
 {
-    if (SkillComp)
+    if (!SkillComp || !SkillComp->CurrentSkill)
     {
-        SkillComp->UseSkill();
+        return;
     }
+
+    // 쿨타임 중이면 RPG도 꺼내지 않음
+    if (!SkillComp->CurrentSkill->CanUseSkill())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] Skill is on cooldown. RPG will not equip."));
+        return;
+    }
+
+    // 스킬 사용 중에는 들고 있던 총을 숨기고 RPG 액터를 장착함
+    const bool bRPGEquipped = EquipRPG();
+
+    bool bSkillUsed = SkillComp->UseSkill();
+
+    UE_LOG(LogTemp, Warning, TEXT("[RPG] EquipResult: %s / SkillUsed: %s"),
+        bRPGEquipped ? TEXT("true") : TEXT("false"),
+        bSkillUsed ? TEXT("true") : TEXT("false"));
+
+    // RPG가 장착되었다면 스킬 성공/실패와 관계없이 일정 시간 뒤 원래 총으로 복구
+    if (bRPGEquipped)
+    {
+        GetWorldTimerManager().ClearTimer(RPGUnequipTimerHandle);
+        GetWorldTimerManager().SetTimer(
+            RPGUnequipTimerHandle,
+            this,
+            &APlayerCharacter::UnequipRPG,
+            RPGEquipDuration,
+            false
+        );
+    }
+
+    // RPG 장착도 실패했고 스킬도 실패했다면 복구만 보장
+    if (!bRPGEquipped && !bSkillUsed)
+    {
+        UnequipRPG();
+    }
+}
+
+// RPG 액터 장착
+bool APlayerCharacter::EquipRPG()
+{
+    if (!GetWorld())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] World is NULL"));
+        return false;
+    }
+
+    if (!RPGWeaponActorClass)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] RPGWeaponActorClass is not set!"));
+        return false;
+    }
+
+    if (!CameraComp)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] CameraComp is NULL"));
+        return false;
+    }
+
+    if (EquippedRPGActor)
+    {
+        EquippedRPGActor->Destroy();
+        EquippedRPGActor = nullptr;
+    }
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    EquippedRPGActor = GetWorld()->SpawnActor<AActor>(
+        RPGWeaponActorClass,
+        CameraComp->GetComponentLocation(),
+        CameraComp->GetComponentRotation(),
+        SpawnParams
+    );
+
+    if (!EquippedRPGActor)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] Failed to spawn RPG weapon actor!"));
+        return false;
+    }
+
+    // RPG 액터가 실제로 장착된 뒤에 원래 총을 숨김
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetActorHiddenInGame(true);
+    }
+
+    // 카메라에 붙인 뒤, BP_PlayerCharacter의 RPGAttach 값으로 위치/회전/크기를 적용
+    EquippedRPGActor->AttachToComponent(CameraComp, FAttachmentTransformRules::KeepRelativeTransform);
+    EquippedRPGActor->SetActorRelativeLocation(RPGAttachLocation);
+    EquippedRPGActor->SetActorRelativeRotation(RPGAttachRotation);
+    EquippedRPGActor->SetActorRelativeScale3D(RPGAttachScale);
+    EquippedRPGActor->SetActorHiddenInGame(false);
+
+    UE_LOG(LogTemp, Warning, TEXT("[RPG] Equipped RPG Actor: %s"),
+        *EquippedRPGActor->GetName());
+
+    return true;
+}
+
+// RPG 장착 해제
+void APlayerCharacter::UnequipRPG()
+{
+    if (EquippedRPGActor)
+    {
+        EquippedRPGActor->Destroy();
+        EquippedRPGActor = nullptr;
+    }
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetActorHiddenInGame(false);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[RPG] Unequip RPG"));
 }
 
 void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
     CurrentHealth -= DamageAmount;
+
     if (APController* PlayerController = Cast<APController>(GetController()))
     {
         PlayerController->UpdateHUD();
