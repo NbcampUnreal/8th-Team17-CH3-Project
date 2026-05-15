@@ -349,11 +349,91 @@ void AWeaponBase::StopFire()
 
 void AWeaponBase::FireShotgun()
 {
+    if (bIsReloading)
+    {
+        return;
+    }
+
+    if (CurrentAmmo <= 0)
+    {
+        Reload();
+        return;
+    }
+
+    if (!bCanFire)
+    {
+        return;
+    }
+
+    bCanFire = false;
+
+    CurrentAmmo--;
+
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+
+    if (!OwnerPawn)
+    {
+        return;
+    }
+
+    APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+
+    if (!PC)
+    {
+        return;
+    }
+
+    FVector CameraLocation;
+    FRotator CameraRotation;
+
+    PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+    FVector Start = CameraLocation;
+
     for (int32 i = 0; i < 8; i++)
     {
-        Fire();
+        // 퍼짐값
+        float RandomYaw = FMath::RandRange(-6.f, 6.f);
+
+        float RandomPitch = FMath::RandRange(-6.f, 6.f);
+
+        FRotator SpreadRotation = CameraRotation;
+
+        SpreadRotation.Yaw += RandomYaw;
+
+        SpreadRotation.Pitch += RandomPitch;
+
+        FVector End = Start + (SpreadRotation.Vector() * 10000.f);
+
+        FHitResult Hit;
+
+        FCollisionQueryParams Params;
+
+        Params.AddIgnoredActor(this);
+
+        Params.AddIgnoredActor(OwnerPawn);
+
+        bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
+
+        DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.f);
+
+        if (bHit)
+        {
+            AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Hit.GetActor());
+
+            if (Enemy)
+            {
+                float Damage = WeaponData.Damage;
+
+                Enemy->ApplyDamage(Damage);
+
+                UE_LOG(LogTemp, Warning, TEXT("Shotgun Hit"));
+            }
+        }
     }
-}
+
+    GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
+}   
 
 void AWeaponBase::FireBow()
 {
@@ -389,32 +469,67 @@ void AWeaponBase::FireBazooka()
         return;
     }
 
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+
+    if (!OwnerPawn)
+    {
+        return;
+    }
+
+    APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+
+    if (!PC)
+    {
+        return;
+    }
+
+    // 카메라 위치/회전
+    FVector CameraLocation;
+    FRotator CameraRotation;
+
+    PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+    // 화면 중앙 라인트레이스
+    FVector TraceStart = CameraLocation;
+
+    FVector TraceEnd = TraceStart + (CameraRotation.Vector() * 10000.f);
+
+    FHitResult Hit;
+
+    FCollisionQueryParams Params;
+
+    Params.AddIgnoredActor(this);
+    Params.AddIgnoredActor(OwnerPawn);
+
+    bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
+
+    // 목표 위치
+    FVector TargetPoint = bHit ? Hit.Location : TraceEnd;
+
     // 총구 위치
     FVector SpawnLocation = Mesh->GetSocketLocation(TEXT("Muzzle"));
 
-    // 총구 회전
-    FRotator SpawnRotation = Mesh->GetSocketRotation(TEXT("Muzzle"));
+    // 목표 방향 계산
+    FVector ShootDirection = (TargetPoint - SpawnLocation).GetSafeNormal();
+
+    FRotator SpawnRotation = ShootDirection.Rotation();
 
     // Projectile 생성
-    ABazookaProjectile* Projectile =
-        GetWorld()->SpawnActor<ABazookaProjectile>(BazookaProjectileClass, SpawnLocation, SpawnRotation);
+    ABazookaProjectile* Projectile = GetWorld()->SpawnActor<ABazookaProjectile>(BazookaProjectileClass, SpawnLocation, SpawnRotation);
 
     // 생성 성공 시
     if (Projectile)
     {
         Projectile->SetDamage(WeaponData.Damage);
+
         Projectile->SetProjectileMesh(WeaponData.ProjectileMesh);
 
         Projectile->SetOwner(GetOwner());
+
         Projectile->Collision->IgnoreActorWhenMoving(GetOwner(), true);
 
         UE_LOG(LogTemp, Warning, TEXT("Bazooka Fired"));
     }
-    GetWorld()->GetTimerManager().SetTimer(
-        FireRateTimerHandle,
-        this,
-        &AWeaponBase::ResetFire,
-        WeaponData.FireRate,
-        false
-    );
+
+    GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
 }

@@ -34,7 +34,7 @@ public:
     float Damage = 30.f;
 
     // 폭발 범위
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Explosion")
     float ExplosionRadius = 300.f;
 
     // 폭발 여부

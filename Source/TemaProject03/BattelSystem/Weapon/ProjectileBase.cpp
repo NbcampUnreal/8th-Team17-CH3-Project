@@ -1,5 +1,7 @@
 ﻿#include "ProjectileBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "TemaProject03/Enemy/EnemyCharacter.h"
+#include "DrawDebugHelpers.h"
 
 AProjectileBase::AProjectileBase()
 {
@@ -20,9 +22,11 @@ AProjectileBase::AProjectileBase()
     // 투사체 이동
     ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 
-    ProjectileMovement->InitialSpeed = 3000.f;
+    ProjectileMovement->InitialSpeed = 4000.f;
 
-    ProjectileMovement->MaxSpeed = 3000.f;
+    ProjectileMovement->MaxSpeed = 4000.f;
+
+    ProjectileMovement->ProjectileGravityScale = 0.1f;
 
     ProjectileMovement->bRotationFollowsVelocity = true;
 
@@ -42,13 +46,41 @@ void AProjectileBase::SetDamage(float NewDamage)
 
 void AProjectileBase::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-    // 범위 폭발
-    if (bUseRadialDamage)
+    // 자기 자신 무시
+    if (OtherActor == GetOwner())
     {
-        UGameplayStatics::ApplyRadialDamage(GetWorld(), Damage, GetActorLocation(), ExplosionRadius, nullptr, TArray<AActor*>(), this, nullptr, true);
+        return;
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("Projectile Hit"));
+    FVector ExplosionLocation = GetActorLocation();
+
+    // 폭발 범위 디버그
+    DrawDebugSphere(GetWorld(), ExplosionLocation, ExplosionRadius, 32, FColor::Red, false, 2.f);
+
+    // 모든 Enemy 찾기
+    TArray<AActor*> EnemyActors;
+
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AEnemyCharacter::StaticClass(), EnemyActors);
+
+    for (AActor* Actor : EnemyActors)
+    {
+        AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Actor);
+
+        if (!Enemy)
+        {
+            continue;
+        }
+
+        float Distance = FVector::Dist(ExplosionLocation, Enemy->GetActorLocation());
+
+        // 폭발 범위 안이면 데미지
+        if (Distance <= ExplosionRadius)
+        {
+            Enemy->ApplyDamage(Damage);
+
+            UE_LOG(LogTemp, Warning, TEXT("Explosion Hit"));
+        }
+    }
 
     Destroy();
 }
