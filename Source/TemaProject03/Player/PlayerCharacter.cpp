@@ -110,6 +110,11 @@ void APlayerCharacter::BeginPlay()
             CurrentWeapon->SetActorScale3D(FVector(0.8f));
         }
     }
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Ammo();
+    }
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -424,9 +429,10 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
     CurrentHealth -= DamageAmount;
 
+    // 체력바 갱신 함수
     if (APController* PlayerController = Cast<APController>(GetController()))
     {
-        PlayerController->UpdateHUD();
+        PlayerController->UpdateHUD_HP();
     }
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);

@@ -21,7 +21,9 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
     UUserWidget* HUDWidgetInstance;
 
-    void UpdateHUD();
+    void UpdateHUD_HP();
+    void UpdateHUD_Ammo();
+    void UpdateHUD_Reload(bool bIsReload);
     void TriggerUICustomEvent(FName EventName);
 
 protected:

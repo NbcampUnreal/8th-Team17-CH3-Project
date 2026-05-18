@@ -38,6 +38,7 @@ void AWeaponBase::BeginPlay()
                     );
             }
 
+            MaxAmmo = WeaponData.MagazineSize;
             CurrentAmmo = WeaponData.MagazineSize;
 
             if (WeaponData.WeaponMesh)
@@ -96,6 +97,12 @@ void AWeaponBase::Fire()
     bCanFire = false;
 
     CurrentAmmo--; // 탄약 감소
+
+    // 탄약 감소된 후 HUD 업데이트
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Ammo();
+    }
 
     // 플레이어 캐릭터 가져오기
     APlayerCharacter* Char = Cast<APlayerCharacter>(GetOwner());
@@ -253,6 +260,12 @@ void AWeaponBase::Reload()
 
     bIsReloading = true;
 
+    // 재장전 시 ReloadAnim 출력
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Reload(true);
+    }
+
     UE_LOG(LogTemp, Warning, TEXT("Start Reload"));
 
     GetWorld()->GetTimerManager().SetTimer(ReloadTimerHandle, this, &AWeaponBase::FinishReload, WeaponData.ReloadTime, false);
@@ -265,7 +278,24 @@ void AWeaponBase::FinishReload()
 
     bCanFire = true;
 
+    // 재장전 후 ReloadAnim 숨기기
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Reload(false);
+    }
+
+    // 재장전 후 탄약 HUD 업데이트
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Ammo();
+    }
+
     UE_LOG(LogTemp, Warning, TEXT("Reload Complete"));
+}
+
+int32 AWeaponBase::GetMaxAmmo() const
+{
+    return MaxAmmo;
 }
 
 int32 AWeaponBase::GetCurrentAmmo() const

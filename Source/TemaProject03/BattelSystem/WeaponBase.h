@@ -42,6 +42,8 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
     int32 CurrentAmmo;
 
+    int32 MaxAmmo;
+
     bool bIsReloading = false;
 
     FTimerHandle ReloadTimerHandle;
@@ -81,6 +83,7 @@ public:
     void Reload();
     void FinishReload();
     int32 GetCurrentAmmo() const;
+    int32 GetMaxAmmo() const;
 
     void StartFire();
     void StopFire();
