@@ -25,3 +25,13 @@ enum class EEnemyAttackType : uint8
     Ranged UMETA(DisplayName = "Ranged"),
     Both UMETA(DisplayName = "Both")
 };
+
+// 회피 방식 추가
+UENUM(BlueprintType)
+enum class EEnemyEvadePhase : uint8
+{
+    None UMETA(DisplayName = "None"),
+    Back UMETA(DisplayName = "Back"),
+    Left UMETA(DisplayName = "Left"),
+    Right UMETA(DisplayName = "Right")
+};

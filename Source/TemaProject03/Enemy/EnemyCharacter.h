@@ -221,19 +221,29 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 공격 시도
         void TryAttack();
 
+    public:
         // 근접 공격
+        UFUNCTION(BlueprintCallable)
         void PerformMeleeAttack();
 
-        // 공격 방식
+        UFUNCTION(BlueprintCallable)
+        void OnAttackEnd();
 
-        enum class EMeleeEvadePhase
-        {
-            None,
-            Back,
-            Side
-        };
+        // 적 죽음
+        UFUNCTION(BlueprintCallable)
+        void DestroyEnemy();
+
+    protected:
+        // 공격 방식
+        
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
         bool bIsEvading = false;
-        EMeleeEvadePhase EvadePhase = EMeleeEvadePhase::None;
+
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
+        EEnemyEvadePhase EvadePhase = EEnemyEvadePhase::None;
+
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
+        float EvadeDirection = 0.0f;
 
         float EvadeTimer = 0.0f;
         float BackEvadeTime = 0.8f;
