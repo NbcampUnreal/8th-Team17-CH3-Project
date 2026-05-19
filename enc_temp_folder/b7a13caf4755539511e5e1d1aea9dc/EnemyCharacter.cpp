@@ -467,17 +467,17 @@ void AEnemyCharacter::OnHitEnd()
 {
     if (EnemyState != EEnemyState::Hit)
     {
-        return;
-    }
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1,
+                2.f,
+                FColor::Green,
+                TEXT("OnHitEnd Called")
+            );
+        }
 
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            -1,
-            2.f,
-            FColor::Green,
-            TEXT("OnHitEnd Called")
-        );
+        return;
     }
 
     SetEnemyState(EEnemyState::Chase);
@@ -650,9 +650,6 @@ void AEnemyCharacter::HandleEnemyState(float DeltaTime)
 
         break;
 
-    case EEnemyState::Hit:
-        break;
-
     case EEnemyState::Dead:
         break;
     }
@@ -745,18 +742,20 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         );
     }
 
-    // 죽었으면 Dead 상태로 전환
-    if (CurrentHealth <= 0.0f)
+    // 맞으면 플레이어를 강제로 타겟으로 잡기
+    if (CurrentHealth > 0)
     {
-        CurrentHealth = 0.0f;
+        AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
 
-        UE_LOG(LogTemp, Warning, TEXT("Enemy Dead"));
-
-        SetEnemyState(EEnemyState::Dead);
+        if (PlayerActor)
+        {
+            TargetPlayer = PlayerActor;
+            bPlayerInDetectRange = true;
+            bCanSeePlayer = true;
+        }
 
         bIsAttacking = false;
         bIsEvading = false;
-        bCanAttack = false;
 
         if (AAIController* AIController = Cast<AAIController>(GetController()))
         {
@@ -766,42 +765,12 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         if (GetCharacterMovement())
         {
             GetCharacterMovement()->StopMovementImmediately();
-            GetCharacterMovement()->DisableMovement();
         }
 
+        SetEnemyState(EEnemyState::Hit);
+
         return;
     }
-
-    // 살아있으면 플레이어를 강제로 타겟으로 잡고 Hit 상태
-    AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-
-    if (PlayerActor)
-    {
-        TargetPlayer = PlayerActor;
-        bPlayerInDetectRange = true;
-        bCanSeePlayer = true;
-    }
-
-    // 이미 Hit 상태면 데미지만 받고 Hit 애니 재시작은 안 함
-    if (EnemyState == EEnemyState::Hit)
-    {
-        return;
-    }
-
-    bIsAttacking = false;
-    bIsEvading = false;
-
-    if (AAIController* AIController = Cast<AAIController>(GetController()))
-    {
-        AIController->StopMovement();
-    }
-
-    if (GetCharacterMovement())
-    {
-        GetCharacterMovement()->StopMovementImmediately();
-    }
-
-    SetEnemyState(EEnemyState::Hit);
 }
 
 void AEnemyCharacter::ApplyEnemyData()
