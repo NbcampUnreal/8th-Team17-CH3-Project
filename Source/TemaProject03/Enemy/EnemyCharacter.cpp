@@ -439,6 +439,8 @@ void AEnemyCharacter::OnAttackEnd()
 
     StartMeleeEvade();
 
+    const float RandomCooldown = FMath::FRandRange(1.5f, 4.0f);
+
     GetWorldTimerManager().SetTimer(
         AttackCooldownTimerHandle,
         this,
@@ -459,6 +461,16 @@ void AEnemyCharacter::DestroyEnemy()
     }
 
     Destroy();
+}
+
+void AEnemyCharacter::OnHitEnd()
+{
+    if (EnemyState != EEnemyState::Hit)
+    {
+        return;
+    }
+
+    SetEnemyState(EEnemyState::Chase);
 }
     
 void AEnemyCharacter::StartMeleeEvade()
@@ -560,6 +572,21 @@ void AEnemyCharacter::ResetAttack()
 
 void AEnemyCharacter::UpdateEnemyState()
 {
+    if (EnemyState == EEnemyState::Dead)
+    {
+        return;
+    }
+
+    if (EnemyState == EEnemyState::Hit)
+    {
+        return;
+    }
+
+    if (bIsEvading)
+    {
+        return;
+    }
+
     if (!TargetPlayer)
     {
         SetEnemyState(EEnemyState::Idle);
@@ -711,8 +738,6 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
             bPlayerInDetectRange = true;
             bCanSeePlayer = true;
 
-            SetEnemyState(EEnemyState::Chase);
-
             if (GEngine)
             {
                 GEngine->AddOnScreenDebugMessage(
@@ -747,6 +772,17 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         }
 
         return;
+    }
+    SetEnemyState(EEnemyState::Hit);
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            2.f,
+            FColor::Purple,
+            TEXT("Enemy State: Hit")
+        );
     }
 }
 

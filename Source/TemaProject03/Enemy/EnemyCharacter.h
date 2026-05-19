@@ -233,6 +233,9 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         UFUNCTION(BlueprintCallable)
         void DestroyEnemy();
 
+        UFUNCTION(BlueprintCallable)
+        void OnHitEnd();
+
     protected:
         // 공격 방식
         
