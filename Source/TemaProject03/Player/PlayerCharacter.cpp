@@ -111,9 +111,11 @@ void APlayerCharacter::BeginPlay()
         }
     }
 
+    // 게임 시작 시 Ammo / SkillCooldown 업데이트
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
-        PlayerController->UpdateHUD_Ammo();
+        PlayerController->UpdateHUD_Ammo();        
+        PlayerController->UpdateHUD_SkillCooldown(SkillComp->CurrentSkill->bIsOnCooldown);
     }
 }
 
@@ -142,6 +144,11 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
             EnhancedInput->BindAction(SkillAction, ETriggerEvent::Started, this, &APlayerCharacter::UseSkillInput);
         }
     }
+}
+
+float APlayerCharacter::GetOriginalSkillCooldown() const
+{
+    return SkillComp->CurrentSkill->Cooldown;
 }
 
 bool APlayerCharacter::GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) const
@@ -192,6 +199,12 @@ void APlayerCharacter::Look(const FInputActionValue& Value)
     }
 }
 
+float APlayerCharacter::GetRemainingCooldown() const
+{
+    if (!bIsDashOnCooldown) return 0.0f;
+    return GetWorld()->GetTimerManager().GetTimerRemaining(DashCooldownTimerHandle);
+}
+
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용
 void APlayerCharacter::Dash(const FInputActionValue& Value)
 {
@@ -232,6 +245,11 @@ void APlayerCharacter::Dash(const FInputActionValue& Value)
 
         // 쿨타임 타이머 (대시 시작 시점부터 DashCooldown초 후 해제)
         GetWorldTimerManager().SetTimer(DashCooldownTimerHandle, this, &APlayerCharacter::ResetDashCooldown, DashCooldown, false);
+
+        if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+        {
+            PlayerController->SkillCooldownTimer_2();
+        }
     }
 }
 
@@ -319,6 +337,11 @@ void APlayerCharacter::UseSkillInput()
     const bool bRPGEquipped = EquipRPG();
 
     bool bSkillUsed = SkillComp->UseSkill();
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->SkillCooldownTimer();
+    }
 
     UE_LOG(LogTemp, Warning, TEXT("[RPG] EquipResult: %s / SkillUsed: %s"),
         bRPGEquipped ? TEXT("true") : TEXT("false"),

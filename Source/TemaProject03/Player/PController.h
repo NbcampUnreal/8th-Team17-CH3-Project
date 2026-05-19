@@ -21,9 +21,16 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
     UUserWidget* HUDWidgetInstance;
 
+    FTimerHandle SkillCooldownTimerHandle;
+    FTimerHandle SkillCooldownTimerHandle_2;
+
     void UpdateHUD_HP();
     void UpdateHUD_Ammo();
     void UpdateHUD_Reload(bool bIsReload);
+    void SkillCooldownTimer();
+    void SkillCooldownTimer_2();
+    void UpdateHUD_SkillCooldown(bool bIsOnCooldown);
+    void UpdateHUD_SkillCooldown_2(bool bIsOnCooldown);
     void TriggerUICustomEvent(FName EventName);
 
 protected:

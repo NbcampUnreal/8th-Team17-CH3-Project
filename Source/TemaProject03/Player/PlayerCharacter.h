@@ -175,6 +175,10 @@ protected:
 public:
     float GetCurrentHealth() const { return CurrentHealth; }
     float GetMaxHealth() const { return MaxHealth; }
+    float GetOriginalSkillCooldown() const;
+    class USkillComponent* GetSkillComponent() const { return SkillComp; }
+    float GetDashCooldown() const { return DashCooldown; }
+    float GetRemainingCooldown() const;
 
     // RPG 액터 장착
     bool EquipRPG();
