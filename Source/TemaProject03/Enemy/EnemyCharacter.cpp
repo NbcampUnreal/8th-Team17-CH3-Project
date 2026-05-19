@@ -771,6 +771,9 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
             GetCharacterMovement()->DisableMovement();
         }
 
+        CurrentHealth = 0.f;
+        DestroyEnemy();
+
         return;
     }
     SetEnemyState(EEnemyState::Hit);

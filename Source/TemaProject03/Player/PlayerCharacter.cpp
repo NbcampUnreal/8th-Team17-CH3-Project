@@ -100,22 +100,23 @@ void APlayerCharacter::BeginPlay()
             CurrentWeapon->SetOwner(this); // 중요: 무기의 Owner를 플레이어로 설정
 
             // 손에 붙이기 (소켓 이름은 hand_rSocket 기준)
+            // 현재 구조에서는 캐릭터 손 소켓이 아니라 카메라에 무기를 붙여 1인칭 총기처럼 보여줌
             CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
 
-            CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
-
-            CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
-
-            // 크기 조정
-            CurrentWeapon->SetActorScale3D(FVector(0.8f));
+            // WeaponData에 저장된 총기별 위치/회전/크기 적용
+            CurrentWeapon->ApplyWeaponAttachTransform();
         }
     }
 
     // 게임 시작 시 Ammo / SkillCooldown 업데이트
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
-        PlayerController->UpdateHUD_Ammo();        
-        PlayerController->UpdateHUD_SkillCooldown(SkillComp->CurrentSkill->bIsOnCooldown);
+        PlayerController->UpdateHUD_Ammo();
+
+        if (SkillComp && SkillComp->CurrentSkill)
+        {
+            PlayerController->UpdateHUD_SkillCooldown(SkillComp->CurrentSkill->bIsOnCooldown);
+        }
     }
 }
 
@@ -148,6 +149,11 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 float APlayerCharacter::GetOriginalSkillCooldown() const
 {
+    if (!SkillComp || !SkillComp->CurrentSkill)
+    {
+        return 0.0f;
+    }
+
     return SkillComp->CurrentSkill->Cooldown;
 }
 
@@ -281,13 +287,8 @@ void APlayerCharacter::StartFire()
         UE_LOG(LogTemp, Warning, TEXT("StartFire Called!"));
         UE_LOG(LogTemp, Warning, TEXT("CurrentWeapon is Valid!"));
 
-        // 발사 애니메이션 재생 (없어도 발사는 되도록 if문으로 분리)
-        if (FireMontage)
-        {
-            PlayAnimMontage(FireMontage);
-        }
-
-        // 실제 발사 로직 호출
+        // 카메라에 붙은 무기 구조에서는 캐릭터 전신 발사 애니메이션 대신
+        // WeaponBase 내부에서 총기 자체 발사 연출을 처리함
         CurrentWeapon->StartFire();
     }
     else
@@ -300,11 +301,8 @@ void APlayerCharacter::StartReload()
 {
     if (CurrentWeapon)
     {
-        // 리로드 애니메이션 재생
-        if (ReloadMontage)
-        {
-            PlayAnimMontage(ReloadMontage);
-        }
+        // 카메라에 붙은 무기 구조에서는 캐릭터 전신 리로드 애니메이션 대신
+        // 우선 WeaponBase의 리로드 로직과 HUD 리로드 연출만 사용함
         CurrentWeapon->Reload();
     }
 }
@@ -338,9 +336,12 @@ void APlayerCharacter::UseSkillInput()
 
     bool bSkillUsed = SkillComp->UseSkill();
 
-    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    if (bSkillUsed)
     {
-        PlayerController->SkillCooldownTimer();
+        if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+        {
+            PlayerController->SkillCooldownTimer();
+        }
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[RPG] EquipResult: %s / SkillUsed: %s"),
@@ -425,8 +426,7 @@ bool APlayerCharacter::EquipRPG()
     EquippedRPGActor->SetActorRelativeScale3D(RPGAttachScale);
     EquippedRPGActor->SetActorHiddenInGame(false);
 
-    UE_LOG(LogTemp, Warning, TEXT("[RPG] Equipped RPG Actor: %s"),
-        *EquippedRPGActor->GetName());
+    UE_LOG(LogTemp, Warning, TEXT("[RPG] Equipped RPG Actor: %s"), *EquippedRPGActor->GetName());
 
     return true;
 }
@@ -443,6 +443,9 @@ void APlayerCharacter::UnequipRPG()
     if (CurrentWeapon)
     {
         CurrentWeapon->SetActorHiddenInGame(false);
+
+        // RPG 사용 중 무기 반동 위치가 남아있을 수 있으므로 원래 카메라 부착값으로 복구
+        CurrentWeapon->ApplyWeaponAttachTransform();
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[RPG] Unequip RPG"));
@@ -452,7 +455,6 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
     CurrentHealth -= DamageAmount;
 
-    // 체력바 갱신 함수
     if (APController* PlayerController = Cast<APController>(GetController()))
     {
         PlayerController->UpdateHUD_HP();

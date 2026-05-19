@@ -9,9 +9,13 @@ AWeaponBase::AWeaponBase()
 {
     PrimaryActorTick.bCanEverTick = false;
 
+    // 무기 기준점 생성
+    WeaponRoot = CreateDefaultSubobject<USceneComponent>(TEXT("WeaponRoot"));
+    RootComponent = WeaponRoot;
+
     // 무기 메쉬 생성
     Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
-    RootComponent = Mesh;
+    Mesh->SetupAttachment(WeaponRoot);
 
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
@@ -45,6 +49,11 @@ void AWeaponBase::BeginPlay()
             {
                 Mesh->SetStaticMesh(WeaponData.WeaponMesh);
             }
+
+            Mesh->SetRelativeLocation(WeaponData.MeshRelativeLocation);
+            Mesh->SetRelativeRotation(WeaponData.MeshRelativeRotation);
+            Mesh->SetRelativeScale3D(WeaponData.MeshRelativeScale);
+            UE_LOG(LogTemp, Warning, TEXT("Weapon Camera Feedback Ready!"));
 
             UE_LOG(LogTemp, Warning, TEXT("Ammo Loaded: %d"), CurrentAmmo);
         }
@@ -97,6 +106,9 @@ void AWeaponBase::Fire()
     bCanFire = false;
 
     CurrentAmmo--; // 탄약 감소
+
+    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
+    PlayFireFeedback();
 
     // 탄약 감소된 후 HUD 업데이트
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
@@ -254,6 +266,7 @@ void AWeaponBase::Fire()
         false
     );
 }
+
 void AWeaponBase::Reload()
 {
     if (bIsReloading) return;
@@ -270,6 +283,7 @@ void AWeaponBase::Reload()
 
     GetWorld()->GetTimerManager().SetTimer(ReloadTimerHandle, this, &AWeaponBase::FinishReload, WeaponData.ReloadTime, false);
 }
+
 void AWeaponBase::FinishReload()
 {
     bIsReloading = false;
@@ -306,6 +320,48 @@ int32 AWeaponBase::GetCurrentAmmo() const
 void AWeaponBase::ResetFire()
 {
     bCanFire = true;
+}
+
+void AWeaponBase::ApplyWeaponAttachTransform()
+{
+    // WeaponData에 저장된 총기별 카메라 부착값 적용
+    SetActorRelativeLocation(WeaponData.AttachLocation);
+    SetActorRelativeRotation(WeaponData.AttachRotation);
+    SetActorScale3D(WeaponData.AttachScale);
+
+    // 발사 반동 후 돌아올 기본 위치/회전 저장
+    BaseRelativeLocation = WeaponData.AttachLocation;
+    BaseRelativeRotation = WeaponData.AttachRotation;
+}
+
+void AWeaponBase::PlayFireFeedback()
+{
+    if (!GetWorld())
+    {
+        return;
+    }
+
+    // 이전 반동 복구 타이머가 남아있으면 정리
+    GetWorld()->GetTimerManager().ClearTimer(FireFeedbackTimerHandle);
+
+    // 카메라에 붙은 무기 자체를 살짝 움직여 발사 느낌을 만듦
+    SetActorRelativeLocation(BaseRelativeLocation + WeaponData.FireRecoilLocationOffset);
+    SetActorRelativeRotation(BaseRelativeRotation + WeaponData.FireRecoilRotationOffset);
+
+    GetWorld()->GetTimerManager().SetTimer(
+        FireFeedbackTimerHandle,
+        this,
+        &AWeaponBase::ResetWeaponFeedback,
+        WeaponData.FireRecoilReturnTime,
+        false
+    );
+}
+
+void AWeaponBase::ResetWeaponFeedback()
+{
+    // 발사 연출 후 원래 위치/회전으로 복구
+    SetActorRelativeLocation(BaseRelativeLocation);
+    SetActorRelativeRotation(BaseRelativeRotation);
 }
 
 void AWeaponBase::StartFire()
@@ -399,6 +455,9 @@ void AWeaponBase::FireShotgun()
 
     CurrentAmmo--;
 
+    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
+    PlayFireFeedback();
+
     APawn* OwnerPawn = Cast<APawn>(GetOwner());
 
     if (!OwnerPawn)
@@ -463,7 +522,7 @@ void AWeaponBase::FireShotgun()
     }
 
     GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
-}   
+}
 
 void AWeaponBase::FireBow()
 {
@@ -491,6 +550,9 @@ void AWeaponBase::FireBazooka()
     bCanFire = false;
 
     CurrentAmmo--;
+
+    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
+    PlayFireFeedback();
 
     // Projectile 없으면 종료
     if (!BazookaProjectileClass)
