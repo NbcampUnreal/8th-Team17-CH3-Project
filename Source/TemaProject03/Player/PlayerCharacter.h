@@ -3,7 +3,9 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "InputAction.h"
 #include "CharacterDataStruct.h"
+#include "TemaProject03/BattelSystem/Effectall/WeaponEffectBase.h"
 #include "TemaProject03/Enemy/EnemySpawner.h"
 #include "PlayerCharacter.generated.h"
 
@@ -31,6 +33,24 @@ public:
     // 현재 무기
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
     class AWeaponBase* CurrentWeapon;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<AWeaponBase> RifleClass;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<AWeaponBase> ShotgunClass;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
+    TSubclassOf<AWeaponBase> PistolClass;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* RifleAction;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* ShotgunAction;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* PistolAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
     class UInputMappingContext* DefaultMappingContext;
@@ -92,6 +112,13 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|RPG")
     FVector RPGAttachScale = FVector(1.0f, 1.0f, 1.0f);
+
+    //효과
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
+
+    UPROPERTY()
+    UWeaponEffectBase* CurrentEffect = nullptr;
 
 private:
     AActor* EquippedRPGActor = nullptr;
@@ -159,6 +186,16 @@ public:
     class USkillComponent* GetSkillComponent() const { return SkillComp; }
     float GetDashCooldown() const { return DashCooldown; }
     float GetRemainingCooldown() const;
+
+    void EquipWeapon();
+
+    void EquipRifle();
+
+    void EquipShotgun();
+
+    void EquipPistol();
+
+    void ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass);
 
 protected:
     virtual void BeginPlay() override;

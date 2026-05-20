@@ -34,12 +34,11 @@ void AWeaponBase::BeginPlay()
         {
             WeaponData = *Data;
 
-            if (CurrentEffect)
+            APlayerCharacter* Char = Cast<APlayerCharacter>(GetOwner());
+
+            if (Char && Char->CurrentEffect)
             {
-                WeaponData.MagazineSize =
-                    CurrentEffect->ModifyMagazineSize(
-                        WeaponData.MagazineSize
-                    );
+                WeaponData.MagazineSize = Char->CurrentEffect->ModifyMagazineSize(WeaponData.MagazineSize);
             }
 
             MaxAmmo = WeaponData.MagazineSize;
@@ -65,20 +64,6 @@ void AWeaponBase::BeginPlay()
     else
     {
         UE_LOG(LogTemp, Error, TEXT("WeaponTable is NULL"));
-    }
-
-    if (EffectClasses.Num() > 0)
-    {
-        int32 RandomIndex = FMath::RandRange(0, EffectClasses.Num() - 1);
-
-        TSubclassOf<UWeaponEffectBase> RandomEffect = EffectClasses[RandomIndex];
-
-        CurrentEffect = NewObject<UWeaponEffectBase>(this, RandomEffect);
-
-        if (CurrentEffect)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Current Effect: %s"), *CurrentEffect->GetClass()->GetName());
-        }
     }
 }
 
@@ -207,9 +192,19 @@ void AWeaponBase::Fire()
 
             float Distance = FVector::Dist(Start, Hit.Location);
 
-            UHeadHunterEffect* HeadHunter = Cast<UHeadHunterEffect>(CurrentEffect);
+            UHeadHunterEffect* HeadHunter = nullptr;
 
-            UConfidenceEffect* Confidence = Cast<UConfidenceEffect>(CurrentEffect);
+            if (Char)
+            {
+                HeadHunter = Cast<UHeadHunterEffect>(Char->CurrentEffect);
+            }
+
+            UConfidenceEffect* Confidence = nullptr;
+
+            if (Char)
+            {
+                Confidence = Cast<UConfidenceEffect>(Char->CurrentEffect);
+            }
 
             if (Confidence)
             {
@@ -240,9 +235,9 @@ void AWeaponBase::Fire()
                 }
             }
 
-            if (CurrentEffect)
+            if (Char && Char->CurrentEffect)
             {
-                Damage = CurrentEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
+                Damage = Char->CurrentEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
             }
 
 
@@ -345,8 +340,9 @@ void AWeaponBase::PlayFireFeedback()
     GetWorld()->GetTimerManager().ClearTimer(FireFeedbackTimerHandle);
 
     // 카메라에 붙은 무기 자체를 살짝 움직여 발사 느낌을 만듦
-    SetActorRelativeLocation(BaseRelativeLocation + WeaponData.FireRecoilLocationOffset);
-    SetActorRelativeRotation(BaseRelativeRotation + WeaponData.FireRecoilRotationOffset);
+    GetRootComponent()->SetRelativeLocation(BaseRelativeLocation + WeaponData.FireRecoilLocationOffset);
+
+    GetRootComponent()->SetRelativeRotation(BaseRelativeRotation + WeaponData.FireRecoilRotationOffset);
 
     GetWorld()->GetTimerManager().SetTimer(
         FireFeedbackTimerHandle,
@@ -360,8 +356,9 @@ void AWeaponBase::PlayFireFeedback()
 void AWeaponBase::ResetWeaponFeedback()
 {
     // 발사 연출 후 원래 위치/회전으로 복구
-    SetActorRelativeLocation(BaseRelativeLocation);
-    SetActorRelativeRotation(BaseRelativeRotation);
+    GetRootComponent()->SetRelativeLocation(BaseRelativeLocation);
+
+    GetRootComponent()->SetRelativeRotation(BaseRelativeRotation);
 }
 
 void AWeaponBase::StartFire()

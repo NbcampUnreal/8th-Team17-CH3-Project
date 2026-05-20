@@ -118,6 +118,20 @@ void APlayerCharacter::BeginPlay()
             PlayerController->UpdateHUD_SkillCooldown(SkillComp->CurrentSkill->bIsOnCooldown);
         }
     }
+
+    if (EffectClasses.Num() > 0)
+    {
+        int32 RandomIndex = FMath::RandRange(0, EffectClasses.Num() - 1);
+
+        TSubclassOf<UWeaponEffectBase> RandomEffect = EffectClasses[RandomIndex];
+
+        CurrentEffect = NewObject<UWeaponEffectBase>(this, RandomEffect);
+
+        if (CurrentEffect)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Current Effect: %s"), *CurrentEffect->GetClass()->GetName());
+        }
+    }
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -138,6 +152,11 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
+        EnhancedInput->BindAction(RifleAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipRifle);
+
+        EnhancedInput->BindAction(ShotgunAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipShotgun);
+
+        EnhancedInput->BindAction(PistolAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipPistol);
 
         // 스킬 실행
         if (SkillAction)
@@ -209,6 +228,89 @@ float APlayerCharacter::GetRemainingCooldown() const
 {
     if (!bIsDashOnCooldown) return 0.0f;
     return GetWorld()->GetTimerManager().GetTimerRemaining(DashCooldownTimerHandle);
+}
+
+void APlayerCharacter::EquipWeapon()
+{
+    if (!WeaponClass)
+    {
+        UE_LOG(LogTemp, Error, TEXT("WeaponClass NULL"));
+        return;
+    }
+
+    // 기존 무기 제거
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->Destroy();
+    }
+
+    // 새 무기 생성
+    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetOwner(this);
+
+        CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+        CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
+
+        CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
+        CurrentWeapon->BaseRelativeLocation = CurrentWeapon->GetRootComponent()->GetRelativeLocation();
+
+        CurrentWeapon->BaseRelativeRotation = CurrentWeapon->GetRootComponent()->GetRelativeRotation();
+
+        UE_LOG(LogTemp, Warning, TEXT("Weapon Equipped"));
+    }
+}
+
+void APlayerCharacter::EquipRifle()
+{
+    WeaponClass = RifleClass;
+
+    EquipWeapon();
+}
+
+void APlayerCharacter::EquipShotgun()
+{
+    WeaponClass = ShotgunClass;
+
+    EquipWeapon();
+}
+
+void APlayerCharacter::EquipPistol()
+{
+    WeaponClass = PistolClass;
+
+    EquipWeapon();
+}
+
+void APlayerCharacter::ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
+{
+    if (!NewWeaponClass)
+    {
+        return;
+    }
+
+    WeaponClass = NewWeaponClass;
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->Destroy();
+    }
+
+    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetOwner(this);
+
+        CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
+
+        CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
+
+        CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
+    }
 }
 
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용

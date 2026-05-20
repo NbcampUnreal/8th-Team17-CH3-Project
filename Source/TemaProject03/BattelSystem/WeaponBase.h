@@ -69,13 +69,6 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
     TSubclassOf<ABazookaProjectile> BazookaProjectileClass;
 
-    //효과
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
-
-    UPROPERTY()
-    UWeaponEffectBase* CurrentEffect = nullptr;
-
     bool bIsChargingBow = false;
 
     FTimerHandle BowChargeTimerHandle;
@@ -107,7 +100,6 @@ public:
 
     FTimerHandle AutoFireTimerHandle;
 
-private:
     // 무기의 기본 위치/회전 저장
     FVector BaseRelativeLocation;
     FRotator BaseRelativeRotation;
