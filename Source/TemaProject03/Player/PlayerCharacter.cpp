@@ -7,9 +7,11 @@
 #include "GameFramework/PlayerController.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/SceneComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
+#include "WeaponPickup.h"
 #include "SkillComponent.h"
 #include "PController.h"
 
@@ -31,6 +33,13 @@ APlayerCharacter::APlayerCharacter()
     CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     CameraComp->SetupAttachment(SpringArmComp);
     CameraComp->bUsePawnControlRotation = false;
+
+    // 1인칭 팔 메시
+    FirstPersonArmsMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonArms"));
+    FirstPersonArmsMesh->SetupAttachment(CameraComp);
+    FirstPersonArmsMesh->SetOnlyOwnerSee(true);
+    FirstPersonArmsMesh->bCastDynamicShadow = false;
+    FirstPersonArmsMesh->CastShadow = false;
 
     // 스킬 컴포넌트 생성 (추가됨)
     SkillComp = CreateDefaultSubobject<USkillComponent>(TEXT("SkillComp"));
@@ -94,18 +103,7 @@ void APlayerCharacter::BeginPlay()
     // 무기 스폰 및 부착 로직 추가
     if (WeaponClass)
     {
-        CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
-        if (CurrentWeapon)
-        {
-            CurrentWeapon->SetOwner(this); // 중요: 무기의 Owner를 플레이어로 설정
-
-            // 손에 붙이기 (소켓 이름은 hand_rSocket 기준)
-            // 현재 구조에서는 캐릭터 손 소켓이 아니라 카메라에 무기를 붙여 1인칭 총기처럼 보여줌
-            CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
-
-            // WeaponData에 저장된 총기별 위치/회전/크기 적용
-            CurrentWeapon->ApplyWeaponAttachTransform();
-        }
+        EquipWeapon(WeaponClass);
     }
 
     // 게임 시작 시 Ammo / SkillCooldown 업데이트
@@ -152,11 +150,28 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
-        EnhancedInput->BindAction(RifleAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipRifle);
 
-        EnhancedInput->BindAction(ShotgunAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipShotgun);
+        // 숫자키 무기 장착
+        if (RifleAction)
+        {
+            EnhancedInput->BindAction(RifleAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipRifle);
+        }
 
-        EnhancedInput->BindAction(PistolAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipPistol);
+        if (ShotgunAction)
+        {
+            EnhancedInput->BindAction(ShotgunAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipShotgun);
+        }
+
+        if (PistolAction)
+        {
+            EnhancedInput->BindAction(PistolAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipPistol);
+        }
+
+        // F키 상호작용
+        if (InteractAction)
+        {
+            EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &APlayerCharacter::Interact);
+        }
 
         // 스킬 실행
         if (SkillAction)
@@ -232,85 +247,27 @@ float APlayerCharacter::GetRemainingCooldown() const
 
 void APlayerCharacter::EquipWeapon()
 {
-    if (!WeaponClass)
-    {
-        UE_LOG(LogTemp, Error, TEXT("WeaponClass NULL"));
-        return;
-    }
-
-    // 기존 무기 제거
-    if (CurrentWeapon)
-    {
-        CurrentWeapon->Destroy();
-    }
-
-    // 새 무기 생성
-    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
-
-    if (CurrentWeapon)
-    {
-        CurrentWeapon->SetOwner(this);
-
-        CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
-
-        CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
-
-        CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
-        CurrentWeapon->BaseRelativeLocation = CurrentWeapon->GetRootComponent()->GetRelativeLocation();
-
-        CurrentWeapon->BaseRelativeRotation = CurrentWeapon->GetRootComponent()->GetRelativeRotation();
-
-        UE_LOG(LogTemp, Warning, TEXT("Weapon Equipped"));
-    }
+    EquipWeapon(WeaponClass);
 }
 
 void APlayerCharacter::EquipRifle()
 {
-    WeaponClass = RifleClass;
-
-    EquipWeapon();
+    EquipWeapon(RifleClass);
 }
 
 void APlayerCharacter::EquipShotgun()
 {
-    WeaponClass = ShotgunClass;
-
-    EquipWeapon();
+    EquipWeapon(ShotgunClass);
 }
 
 void APlayerCharacter::EquipPistol()
 {
-    WeaponClass = PistolClass;
-
-    EquipWeapon();
+    EquipWeapon(PistolClass);
 }
 
 void APlayerCharacter::ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
 {
-    if (!NewWeaponClass)
-    {
-        return;
-    }
-
-    WeaponClass = NewWeaponClass;
-
-    if (CurrentWeapon)
-    {
-        CurrentWeapon->Destroy();
-    }
-
-    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
-
-    if (CurrentWeapon)
-    {
-        CurrentWeapon->SetOwner(this);
-
-        CurrentWeapon->AttachToComponent(CameraComp, FAttachmentTransformRules::SnapToTargetIncludingScale);
-
-        CurrentWeapon->SetActorRelativeLocation(FVector(20.f, 20.f, -20.f));
-
-        CurrentWeapon->SetActorRelativeRotation(FRotator(10.f, 10.f, 0.f));
-    }
+    EquipWeapon(NewWeaponClass);
 }
 
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용
@@ -389,8 +346,7 @@ void APlayerCharacter::StartFire()
         UE_LOG(LogTemp, Warning, TEXT("StartFire Called!"));
         UE_LOG(LogTemp, Warning, TEXT("CurrentWeapon is Valid!"));
 
-        // 카메라에 붙은 무기 구조에서는 캐릭터 전신 발사 애니메이션 대신
-        // WeaponBase 내부에서 총기 자체 발사 연출을 처리함
+        // 실제 발사 로직 호출
         CurrentWeapon->StartFire();
     }
     else
@@ -401,10 +357,10 @@ void APlayerCharacter::StartFire()
 
 void APlayerCharacter::StartReload()
 {
+    UE_LOG(LogTemp, Warning, TEXT("[Reload] StartReload Called"));
+
     if (CurrentWeapon)
     {
-        // 카메라에 붙은 무기 구조에서는 캐릭터 전신 리로드 애니메이션 대신
-        // 우선 WeaponBase의 리로드 로직과 HUD 리로드 연출만 사용함
         CurrentWeapon->Reload();
     }
 }
@@ -416,6 +372,172 @@ void APlayerCharacter::StopFire()
         UE_LOG(LogTemp, Warning, TEXT("StopFire Called!"));
         CurrentWeapon->StopFire();
     }
+}
+
+void APlayerCharacter::SetNearbyWeaponPickup(AWeaponPickup* NewPickup)
+{
+    NearbyWeaponPickup = NewPickup;
+}
+
+void APlayerCharacter::Interact()
+{
+    if (!NearbyWeaponPickup)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
+        return;
+    }
+
+    TSubclassOf<AWeaponBase> NewWeaponClass = NearbyWeaponPickup->GetWeaponClass();
+    if (!NewWeaponClass)
+    {
+        return;
+    }
+
+    AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
+    NearbyWeaponPickup = nullptr;
+
+    EquipWeapon(NewWeaponClass);
+
+    PickupToDestroy->Destroy();
+}
+
+void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
+{
+    if (!NewWeaponClass || !GetWorld())
+    {
+        return;
+    }
+
+    DropCurrentWeapon();
+
+    WeaponClass = NewWeaponClass;
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(NewWeaponClass, SpawnParams);
+    if (!CurrentWeapon)
+    {
+        CurrentWeaponType = EWeaponType::None;
+        return;
+    }
+
+    CurrentWeapon->SetOwner(this);
+
+    // 현재 무기 타입을 ABP에서 읽을 수 있게 저장
+    CurrentWeaponType = CurrentWeapon->WeaponType;
+
+    USkeletalMeshComponent* AttachMesh = nullptr;
+
+    // 1인칭 팔 메시가 실제로 들어있으면 팔에 붙이고,
+    // 없으면 캐릭터 본체 Mesh의 손 소켓에 붙인다.
+    if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
+    {
+        AttachMesh = FirstPersonArmsMesh;
+    }
+    else
+    {
+        AttachMesh = GetMesh();
+    }
+
+    if (AttachMesh)
+    {
+        CurrentWeapon->AttachToComponent(
+            AttachMesh,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+            WeaponAttachSocketName
+        );
+    }
+    else
+    {
+        CurrentWeapon->AttachToComponent(
+            CameraComp,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale
+        );
+    }
+
+    // WeaponData에 저장된 위치/회전/크기 적용
+    CurrentWeapon->ApplyWeaponAttachTransform();
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Ammo();
+    }
+}
+
+void APlayerCharacter::DropCurrentWeapon()
+{
+    if (!CurrentWeapon || !GetWorld())
+    {
+        return;
+    }
+
+    if (WeaponPickupClass)
+    {
+        FVector DropLocation = GetActorLocation() + GetActorForwardVector() * 120.f;
+        DropLocation.Z += 30.f;
+
+        FRotator DropRotation = GetActorRotation();
+
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        AWeaponPickup* DroppedPickup = GetWorld()->SpawnActor<AWeaponPickup>(
+            WeaponPickupClass,
+            DropLocation,
+            DropRotation,
+            SpawnParams
+        );
+
+        if (DroppedPickup)
+        {
+            DroppedPickup->SetWeaponClass(CurrentWeapon->GetClass());
+        }
+    }
+
+    CurrentWeapon->Destroy();
+    CurrentWeapon = nullptr;
+
+    // 현재 무기가 없으므로 ABP에는 None 상태 전달
+    CurrentWeaponType = EWeaponType::None;
+}
+
+void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
+{
+    if (!MontageToPlay)
+    {
+        return;
+    }
+
+    USkeletalMeshComponent* MontageMesh = nullptr;
+
+    if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
+    {
+        MontageMesh = FirstPersonArmsMesh;
+    }
+    else
+    {
+        MontageMesh = GetMesh();
+    }
+
+    if (!MontageMesh)
+    {
+        return;
+    }
+
+    if (UAnimInstance* AnimInstance = MontageMesh->GetAnimInstance())
+    {
+        AnimInstance->Montage_Play(MontageToPlay);
+    }
+}
+
+void APlayerCharacter::ApplyWeaponRecoil(float RecoilPitch, float RecoilYaw)
+{
+    // 실제 조준 반동은 컨트롤러 회전에 적용
+    AddControllerPitchInput(-RecoilPitch);
+    AddControllerYawInput(FMath::RandRange(-RecoilYaw, RecoilYaw));
 }
 
 // 스킬 실행 함수 구현
@@ -546,7 +668,7 @@ void APlayerCharacter::UnequipRPG()
     {
         CurrentWeapon->SetActorHiddenInGame(false);
 
-        // RPG 사용 중 무기 반동 위치가 남아있을 수 있으므로 원래 카메라 부착값으로 복구
+        // RPG 사용 중 무기 반동 위치가 남아있을 수 있으므로 원래 부착값으로 복구
         CurrentWeapon->ApplyWeaponAttachTransform();
     }
 

@@ -4,7 +4,6 @@
 #include "TemaProject03/Player/PlayerCharacter.h"
 #include "TemaProject03/Player/PController.h"
 
-
 AWeaponBase::AWeaponBase()
 {
     PrimaryActorTick.bCanEverTick = false;
@@ -16,8 +15,12 @@ AWeaponBase::AWeaponBase()
     // 무기 메쉬 생성
     Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
     Mesh->SetupAttachment(WeaponRoot);
-
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    // 스켈레탈 메시 총기 생성
+    SkeletalMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
+    SkeletalMesh->SetupAttachment(WeaponRoot);
+    SkeletalMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 }
 
 void AWeaponBase::BeginPlay()
@@ -25,6 +28,18 @@ void AWeaponBase::BeginPlay()
     Super::BeginPlay();
 
     UE_LOG(LogTemp, Warning, TEXT("Weapon BeginPlay"));
+
+    if (EffectClasses.Num() > 0)
+    {
+        int32 RandomIndex = FMath::RandRange(0, EffectClasses.Num() - 1);
+        TSubclassOf<UWeaponEffectBase> RandomEffect = EffectClasses[RandomIndex];
+        CurrentEffect = NewObject<UWeaponEffectBase>(this, RandomEffect);
+
+        if (CurrentEffect)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Current Effect: %s"), *CurrentEffect->GetClass()->GetName());
+        }
+    }
 
     if (WeaponTable)
     {
@@ -40,19 +55,13 @@ void AWeaponBase::BeginPlay()
             {
                 WeaponData.MagazineSize = Char->CurrentEffect->ModifyMagazineSize(WeaponData.MagazineSize);
             }
+            else if (CurrentEffect)
+            {
+                WeaponData.MagazineSize = CurrentEffect->ModifyMagazineSize(WeaponData.MagazineSize);
+            }
 
             MaxAmmo = WeaponData.MagazineSize;
             CurrentAmmo = WeaponData.MagazineSize;
-
-            if (WeaponData.WeaponMesh)
-            {
-                Mesh->SetStaticMesh(WeaponData.WeaponMesh);
-            }
-
-            Mesh->SetRelativeLocation(WeaponData.MeshRelativeLocation);
-            Mesh->SetRelativeRotation(WeaponData.MeshRelativeRotation);
-            Mesh->SetRelativeScale3D(WeaponData.MeshRelativeScale);
-            UE_LOG(LogTemp, Warning, TEXT("Weapon Camera Feedback Ready!"));
 
             UE_LOG(LogTemp, Warning, TEXT("Ammo Loaded: %d"), CurrentAmmo);
         }
@@ -67,16 +76,44 @@ void AWeaponBase::BeginPlay()
     }
 }
 
+UMeshComponent* AWeaponBase::GetActiveWeaponMesh() const
+{
+    if (SkeletalMesh && SkeletalMesh->GetSkeletalMeshAsset() && SkeletalMesh->IsVisible())
+    {
+        return SkeletalMesh;
+    }
+
+    return Mesh;
+}
+
+FVector AWeaponBase::GetMuzzleLocation() const
+{
+    if (UMeshComponent* ActiveMesh = GetActiveWeaponMesh())
+    {
+        return ActiveMesh->GetSocketLocation(TEXT("Muzzle"));
+    }
+
+    return GetActorLocation();
+}
+
+FRotator AWeaponBase::GetMuzzleRotation() const
+{
+    if (UMeshComponent* ActiveMesh = GetActiveWeaponMesh())
+    {
+        return ActiveMesh->GetSocketRotation(TEXT("Muzzle"));
+    }
+
+    return GetActorRotation();
+}
+
 void AWeaponBase::Fire()
 {
-    // 리로드 중이면 발사 막기
     if (bIsReloading)
     {
         UE_LOG(LogTemp, Warning, TEXT("Reloading..."));
         return;
     }
 
-    // 탄약 없으면 리로드
     if (CurrentAmmo <= 0)
     {
         Reload();
@@ -89,40 +126,50 @@ void AWeaponBase::Fire()
     }
 
     bCanFire = false;
+    CurrentAmmo--;
 
-    CurrentAmmo--; // 탄약 감소
+    if (SkeletalMesh && FireWeaponAnimation)
+    {
+        SkeletalMesh->PlayAnimation(FireWeaponAnimation, false);
+    }
 
-    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
-    PlayFireFeedback();
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(GetOwner()))
+    {
+        Player->PlayArmsMontage(ArmsFireMontage);
+        Player->ApplyWeaponRecoil(WeaponData.RecoilPitch, WeaponData.RecoilYaw);
+    }
 
-    // 탄약 감소된 후 HUD 업데이트
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
         PlayerController->UpdateHUD_Ammo();
     }
 
-    // 플레이어 캐릭터 가져오기
     APlayerCharacter* Char = Cast<APlayerCharacter>(GetOwner());
 
     float CharacterAtk = 0.f;
     if (Char)
     {
-        CharacterAtk = Char->CharacterAttack; // 캐릭터 공격력
+        CharacterAtk = Char->CharacterAttack;
     }
 
-    // 컨트롤러 가져오기
     APawn* OwnerPawn = Cast<APawn>(GetOwner());
-    if (!OwnerPawn) return;
+    if (!OwnerPawn)
+    {
+        GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
+        return;
+    }
 
     APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
-    if (!PC) return;
+    if (!PC)
+    {
+        GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
+        return;
+    }
 
-    // 카메라 위치/방향 가져오기
     FVector CameraLocation;
     FRotator CameraRotation;
     PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
 
-    // 라인트레이스 시작/끝
     FVector Start = CameraLocation;
     FVector End = Start + (CameraRotation.Vector() * 10000.f);
 
@@ -131,40 +178,30 @@ void AWeaponBase::Fire()
     Params.AddIgnoredActor(this);
     Params.AddIgnoredActor(OwnerPawn);
 
-    // 총알 판정
     bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
 
-    FVector TargetPoint = bHit ? Hit.Location : End;
+    FVector MuzzleLocation = GetMuzzleLocation();
+    FRotator MuzzleRotation = GetMuzzleRotation();
 
-    // 총구 위치
-    FVector MuzzleLocation = Mesh->GetSocketLocation(TEXT("Muzzle"));
-    FRotator MuzzleRotation = Mesh->GetSocketRotation(TEXT("Muzzle"));
-
-    FVector ShootDirection = (TargetPoint - MuzzleLocation).GetSafeNormal();
-
-    // 디버그 라인
-    DrawDebugLine(GetWorld(), Start, TargetPoint, FColor::Red, false, 1.f);
-    DrawDebugLine(GetWorld(), MuzzleLocation, TargetPoint, FColor::Yellow, false, 1.f);
+    DrawDebugLine(GetWorld(), Start, bHit ? Hit.Location : End, FColor::Red, false, 1.f);
+    DrawDebugLine(GetWorld(), MuzzleLocation, bHit ? Hit.Location : End, FColor::Yellow, false, 1.f);
     DrawDebugSphere(GetWorld(), MuzzleLocation, 5.f, 12, FColor::Blue, false, 1.f);
 
-    // 발사 이펙트
-    if (MuzzleFlash)
+    if (FireSound)
     {
-        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-            GetWorld(),
-            MuzzleFlash,
-            MuzzleLocation,
-            MuzzleRotation
-        );
+        UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireSound, MuzzleLocation);
     }
 
-    // 히트 처리
+    if (FireEffect)
+    {
+        UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect, MuzzleLocation, MuzzleRotation);
+    }
+
     if (bHit)
     {
         DrawDebugSphere(GetWorld(), Hit.Location, 20.f, 16, FColor::Green, false, 2.f);
 
         UE_LOG(LogTemp, Warning, TEXT("Hit Location: %s"), *Hit.Location.ToString());
-
         UE_LOG(LogTemp, Warning, TEXT("HIT START"));
 
         AActor* HitActor = Hit.GetActor();
@@ -172,84 +209,66 @@ void AWeaponBase::Fire()
         if (!HitActor)
         {
             UE_LOG(LogTemp, Warning, TEXT("NO HIT ACTOR"));
-            return;
         }
-
-        UE_LOG(LogTemp, Warning, TEXT("HIT ACTOR: %s"), *HitActor->GetName());
-
-        UE_LOG(LogTemp, Warning, TEXT("Hit Bone: %s"), *Hit.BoneName.ToString());
-
-        // 적 캐릭터 캐스팅
-        AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(HitActor);
-
-        if (Enemy)
+        else
         {
-            // 공격력 계산 (캐릭터 + 무기)
-            float Attack = CharacterAtk + WeaponData.Damage;
+            UE_LOG(LogTemp, Warning, TEXT("HIT ACTOR: %s"), *HitActor->GetName());
+            UE_LOG(LogTemp, Warning, TEXT("Hit Bone: %s"), *Hit.BoneName.ToString());
 
-            // 방어력 적용
-            float Damage = Attack - Enemy->Defense;
+            AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(HitActor);
 
-            float Distance = FVector::Dist(Start, Hit.Location);
-
-            UHeadHunterEffect* HeadHunter = nullptr;
-
-            if (Char)
+            if (Enemy)
             {
-                HeadHunter = Cast<UHeadHunterEffect>(Char->CurrentEffect);
-            }
+                float Attack = CharacterAtk + WeaponData.Damage;
+                float Damage = Attack - Enemy->Defense;
+                float Distance = FVector::Dist(Start, Hit.Location);
 
-            UConfidenceEffect* Confidence = nullptr;
-
-            if (Char)
-            {
-                Confidence = Cast<UConfidenceEffect>(Char->CurrentEffect);
-            }
-
-            if (Confidence)
-            {
-                if (Hit.BoneName == TEXT("head"))
+                UWeaponEffectBase* ActiveEffect = CurrentEffect;
+                if (Char && Char->CurrentEffect)
                 {
-                    Confidence->OnHeadShot();
-
-                    UE_LOG(LogTemp, Warning, TEXT("SELF HEADSHOT"));
+                    ActiveEffect = Char->CurrentEffect;
                 }
-                else
+
+                UHeadHunterEffect* HeadHunter = Cast<UHeadHunterEffect>(ActiveEffect);
+                UConfidenceEffect* Confidence = Cast<UConfidenceEffect>(ActiveEffect);
+
+                if (Confidence)
                 {
-                    Confidence->OnBodyShot();
-
-                    UE_LOG(LogTemp, Warning, TEXT("SELF BODYSHOT"));
+                    if (Hit.BoneName == TEXT("head"))
+                    {
+                        Confidence->OnHeadShot();
+                        UE_LOG(LogTemp, Warning, TEXT("SELF HEADSHOT"));
+                    }
+                    else
+                    {
+                        Confidence->OnBodyShot();
+                        UE_LOG(LogTemp, Warning, TEXT("SELF BODYSHOT"));
+                    }
                 }
-            }
 
-            if (HeadHunter)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Hit Bone: %s"), *Hit.BoneName.ToString());
-
-                // head 본 맞췄는지 확인
-                if (Hit.BoneName == TEXT("head"))
+                if (HeadHunter)
                 {
-                    HeadHunter->OnHeadShot();
-
-                    UE_LOG(LogTemp, Warning, TEXT("HEADSHOT"));
+                    if (Hit.BoneName == TEXT("head"))
+                    {
+                        HeadHunter->OnHeadShot();
+                        UE_LOG(LogTemp, Warning, TEXT("HEADSHOT"));
+                    }
                 }
+
+                if (ActiveEffect)
+                {
+                    Damage = ActiveEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
+                }
+
+                Enemy->ApplyDamage(Damage);
+
+                if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+                {
+                    PlayerController->TriggerUICustomEvent(FName("ShowHitMarker"));
+                }
+
+                UE_LOG(LogTemp, Warning, TEXT("Damage: %f"), Damage);
             }
-
-            if (Char && Char->CurrentEffect)
-            {
-                Damage = Char->CurrentEffect->ModifyDamage(Damage, Distance, CurrentAmmo, WeaponData.MagazineSize);
-            }
-
-
-            // 데미지 적용
-            Enemy->ApplyDamage(Damage);
-            // Hit 이펙트 출력
-            if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
-            {
-                PlayerController->TriggerUICustomEvent(FName("ShowHitMarker"));
-            }
-
-            UE_LOG(LogTemp, Warning, TEXT("Damage: %f"), Damage);
         }
     }
 
@@ -267,6 +286,24 @@ void AWeaponBase::Reload()
     if (bIsReloading) return;
 
     bIsReloading = true;
+
+    // 총기 자체 장전 애니메이션
+    if (SkeletalMesh && ReloadWeaponAnimation)
+    {
+        SkeletalMesh->PlayAnimation(ReloadWeaponAnimation, false);
+    }
+
+    // 팔 장전 애니메이션
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(GetOwner()))
+    {
+        Player->PlayArmsMontage(ArmsReloadMontage);
+    }
+
+    // 장전 사운드
+    if (ReloadSound)
+    {
+        UGameplayStatics::PlaySoundAtLocation(GetWorld(), ReloadSound, GetActorLocation());
+    }
 
     // 재장전 시 ReloadAnim 출력
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
@@ -319,46 +356,10 @@ void AWeaponBase::ResetFire()
 
 void AWeaponBase::ApplyWeaponAttachTransform()
 {
-    // WeaponData에 저장된 총기별 카메라 부착값 적용
-    SetActorRelativeLocation(WeaponData.AttachLocation);
-    SetActorRelativeRotation(WeaponData.AttachRotation);
-    SetActorScale3D(WeaponData.AttachScale);
-
-    // 발사 반동 후 돌아올 기본 위치/회전 저장
-    BaseRelativeLocation = WeaponData.AttachLocation;
-    BaseRelativeRotation = WeaponData.AttachRotation;
-}
-
-void AWeaponBase::PlayFireFeedback()
-{
-    if (!GetWorld())
-    {
-        return;
-    }
-
-    // 이전 반동 복구 타이머가 남아있으면 정리
-    GetWorld()->GetTimerManager().ClearTimer(FireFeedbackTimerHandle);
-
-    // 카메라에 붙은 무기 자체를 살짝 움직여 발사 느낌을 만듦
-    GetRootComponent()->SetRelativeLocation(BaseRelativeLocation + WeaponData.FireRecoilLocationOffset);
-
-    GetRootComponent()->SetRelativeRotation(BaseRelativeRotation + WeaponData.FireRecoilRotationOffset);
-
-    GetWorld()->GetTimerManager().SetTimer(
-        FireFeedbackTimerHandle,
-        this,
-        &AWeaponBase::ResetWeaponFeedback,
-        WeaponData.FireRecoilReturnTime,
-        false
-    );
-}
-
-void AWeaponBase::ResetWeaponFeedback()
-{
-    // 발사 연출 후 원래 위치/회전으로 복구
-    GetRootComponent()->SetRelativeLocation(BaseRelativeLocation);
-
-    GetRootComponent()->SetRelativeRotation(BaseRelativeRotation);
+    // 총기 위치/회전/크기는 DT가 아니라 BP 또는 손 소켓에서 조정
+    SetActorRelativeLocation(FVector::ZeroVector);
+    SetActorRelativeRotation(FRotator::ZeroRotator);
+    SetActorScale3D(FVector(1.0f));
 }
 
 void AWeaponBase::StartFire()
@@ -375,7 +376,6 @@ void AWeaponBase::StartFire()
         Fire();
 
         GetWorld()->GetTimerManager().SetTimer(AutoFireTimerHandle, this, &AWeaponBase::Fire, WeaponData.FireRate, true);
-
         break;
 
     case EFireType::Shotgun:
@@ -386,11 +386,9 @@ void AWeaponBase::StartFire()
     case EFireType::Bow:
 
         bIsChargingBow = true;
-
         BowChargeStartTime = GetWorld()->GetTimeSeconds();
 
         UE_LOG(LogTemp, Warning, TEXT("Bow Charging Start"));
-
         break;
 
     case EFireType::Bazooka:
@@ -432,93 +430,7 @@ void AWeaponBase::StopFire()
 
 void AWeaponBase::FireShotgun()
 {
-    if (bIsReloading)
-    {
-        return;
-    }
-
-    if (CurrentAmmo <= 0)
-    {
-        Reload();
-        return;
-    }
-
-    if (!bCanFire)
-    {
-        return;
-    }
-
-    bCanFire = false;
-
-    CurrentAmmo--;
-
-    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
-    PlayFireFeedback();
-
-    APawn* OwnerPawn = Cast<APawn>(GetOwner());
-
-    if (!OwnerPawn)
-    {
-        return;
-    }
-
-    APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
-
-    if (!PC)
-    {
-        return;
-    }
-
-    FVector CameraLocation;
-    FRotator CameraRotation;
-
-    PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
-
-    FVector Start = CameraLocation;
-
-    for (int32 i = 0; i < 8; i++)
-    {
-        // 퍼짐값
-        float RandomYaw = FMath::RandRange(-6.f, 6.f);
-
-        float RandomPitch = FMath::RandRange(-6.f, 6.f);
-
-        FRotator SpreadRotation = CameraRotation;
-
-        SpreadRotation.Yaw += RandomYaw;
-
-        SpreadRotation.Pitch += RandomPitch;
-
-        FVector End = Start + (SpreadRotation.Vector() * 10000.f);
-
-        FHitResult Hit;
-
-        FCollisionQueryParams Params;
-
-        Params.AddIgnoredActor(this);
-
-        Params.AddIgnoredActor(OwnerPawn);
-
-        bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
-
-        DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.f);
-
-        if (bHit)
-        {
-            AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Hit.GetActor());
-
-            if (Enemy)
-            {
-                float Damage = WeaponData.Damage;
-
-                Enemy->ApplyDamage(Damage);
-
-                UE_LOG(LogTemp, Warning, TEXT("Shotgun Hit"));
-            }
-        }
-    }
-
-    GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
+    Fire();
 }
 
 void AWeaponBase::FireBow()
@@ -548,13 +460,25 @@ void AWeaponBase::FireBazooka()
 
     CurrentAmmo--;
 
-    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
-    PlayFireFeedback();
+    // 총기 자체 발사 애니메이션
+    if (SkeletalMesh && FireWeaponAnimation)
+    {
+        SkeletalMesh->PlayAnimation(FireWeaponAnimation, false);
+    }
+
+    // 팔 발사 애니메이션 + 카메라 반동
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(GetOwner()))
+    {
+        Player->PlayArmsMontage(ArmsFireMontage);
+        Player->ApplyWeaponRecoil(WeaponData.RecoilPitch, WeaponData.RecoilYaw);
+    }
 
     // Projectile 없으면 종료
     if (!BazookaProjectileClass)
     {
         UE_LOG(LogTemp, Error, TEXT("BazookaProjectileClass is NULL"));
+
+        GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
         return;
     }
 
@@ -562,6 +486,7 @@ void AWeaponBase::FireBazooka()
 
     if (!OwnerPawn)
     {
+        GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
         return;
     }
 
@@ -569,6 +494,7 @@ void AWeaponBase::FireBazooka()
 
     if (!PC)
     {
+        GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
         return;
     }
 
@@ -580,7 +506,6 @@ void AWeaponBase::FireBazooka()
 
     // 화면 중앙 라인트레이스
     FVector TraceStart = CameraLocation;
-
     FVector TraceEnd = TraceStart + (CameraRotation.Vector() * 10000.f);
 
     FHitResult Hit;
@@ -596,7 +521,7 @@ void AWeaponBase::FireBazooka()
     FVector TargetPoint = bHit ? Hit.Location : TraceEnd;
 
     // 총구 위치
-    FVector SpawnLocation = Mesh->GetSocketLocation(TEXT("Muzzle"));
+    FVector SpawnLocation = GetMuzzleLocation();
 
     // 목표 방향 계산
     FVector ShootDirection = (TargetPoint - SpawnLocation).GetSafeNormal();
@@ -611,7 +536,7 @@ void AWeaponBase::FireBazooka()
     {
         Projectile->SetDamage(WeaponData.Damage);
 
-        Projectile->SetProjectileMesh(WeaponData.ProjectileMesh);
+        Projectile->SetProjectileMesh(nullptr);
 
         Projectile->SetOwner(GetOwner());
 

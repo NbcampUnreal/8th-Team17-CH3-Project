@@ -1,18 +1,20 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "WeaponData.h"
-#include "NiagaraSystem.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
 #include "Effectall/WeaponEffectBase.h"
 #include "Effectall/HeadHunterEffect.h"
 #include "Effectall/ConfidenceEffect.h"
 #include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimMontage.h"
+#include "Sound/SoundBase.h"
+#include "Particles/ParticleSystem.h"
 #include "WeaponBase.generated.h"
 
 class ABazookaProjectile;
@@ -30,47 +32,86 @@ protected:
 
 public:
     // DataTable 연결
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, Category = "Weapon|Data")
     UDataTable* WeaponTable;
 
     // 어떤 무기인지
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, Category = "Weapon|Data")
     FName WeaponRowName;
 
     // 실제 데이터
     FWeaponData WeaponData;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-    int32 CurrentAmmo;
+    // 무기 타입 - 팔 ABP에서 Idle 자세 선택용
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
+    EWeaponType WeaponType = EWeaponType::None;
 
-    int32 MaxAmmo;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Ammo")
+    int32 CurrentAmmo = 0;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon|Ammo")
+    int32 MaxAmmo = 0;
 
     bool bIsReloading = false;
-
     FTimerHandle ReloadTimerHandle;
 
     bool bCanFire = true;
-
     FTimerHandle FireRateTimerHandle;
+    FTimerHandle AutoFireTimerHandle;
 
     void ResetFire();
 
     // 무기 기준점
-    UPROPERTY(VisibleAnywhere)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
     USceneComponent* WeaponRoot;
 
-    // 메쉬 추가
-    UPROPERTY(VisibleAnywhere)
+    // Static Mesh 총기용
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
     UStaticMeshComponent* Mesh;
 
-    UPROPERTY(EditAnywhere)
-    UNiagaraSystem* MuzzleFlash;
+    // Skeletal Mesh 총기용
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+    USkeletalMeshComponent* SkeletalMesh;
+
+    // 총기 자체 발사 애니메이션
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
+    UAnimSequence* FireWeaponAnimation;
+
+    // 총기 자체 장전 애니메이션
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
+    UAnimSequence* ReloadWeaponAnimation;
+
+    // 팔 발사 몽타주
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
+    UAnimMontage* ArmsFireMontage;
+
+    // 팔 장전 몽타주
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
+    UAnimMontage* ArmsReloadMontage;
+
+    // 발사 사운드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|FX")
+    USoundBase* FireSound;
+
+    // 장전 사운드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|FX")
+    USoundBase* ReloadSound;
+
+    // 발사 이펙트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|FX")
+    UParticleSystem* FireEffect;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
     TSubclassOf<ABazookaProjectile> BazookaProjectileClass;
 
-    bool bIsChargingBow = false;
+    // 효과
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Effect")
+    TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
 
+    UPROPERTY()
+    UWeaponEffectBase* CurrentEffect = nullptr;
+
+    bool bIsChargingBow = false;
     FTimerHandle BowChargeTimerHandle;
 
     float BowChargeStartTime = 0.0f;
@@ -80,29 +121,21 @@ public:
     void Fire();
     void Reload();
     void FinishReload();
+
     int32 GetCurrentAmmo() const;
     int32 GetMaxAmmo() const;
 
     void StartFire();
     void StopFire();
+
     void FireShotgun();
     void FireBow();
     void FireBazooka();
 
-    // WeaponData에 있는 카메라 부착값 적용
+    // 소켓 장착 후 상대 위치 초기화
     void ApplyWeaponAttachTransform();
 
-    // 카메라에 붙은 총기 자체를 움직이는 발사 연출
-    void PlayFireFeedback();
-
-    // 발사 연출 후 원래 위치로 복구
-    void ResetWeaponFeedback();
-
-    FTimerHandle AutoFireTimerHandle;
-
-    // 무기의 기본 위치/회전 저장
-    FVector BaseRelativeLocation;
-    FRotator BaseRelativeRotation;
-
-    FTimerHandle FireFeedbackTimerHandle;
+    UMeshComponent* GetActiveWeaponMesh() const;
+    FVector GetMuzzleLocation() const;
+    FRotator GetMuzzleRotation() const;
 };
