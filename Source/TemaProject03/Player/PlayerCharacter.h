@@ -7,7 +7,11 @@
 #include "CharacterDataStruct.h"
 #include "TemaProject03/BattelSystem/Effectall/WeaponEffectBase.h"
 #include "TemaProject03/Enemy/EnemySpawner.h"
+#include "TemaProject03/BattelSystem/WeaponData.h"
+
 #include "PlayerCharacter.generated.h"
+
+class AWeaponPickup;
 
 UCLASS()
 class TEMAPROJECT03_API APlayerCharacter : public ACharacter
@@ -32,7 +36,10 @@ public:
 
     // 현재 무기
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
-    class AWeaponBase* CurrentWeapon;
+    class AWeaponBase* CurrentWeapon = nullptr;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+    EWeaponType CurrentWeaponType = EWeaponType::None;
 
     UPROPERTY(EditAnywhere, Category = "Weapon")
     TSubclassOf<AWeaponBase> RifleClass;
@@ -52,6 +59,14 @@ public:
     UPROPERTY(EditAnywhere, Category = "Input")
     UInputAction* PistolAction;
 
+    // 손에 무기를 붙일 소켓 이름
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+    FName WeaponAttachSocketName = TEXT("hand_rSocket");
+
+    // 바닥에 버릴 무기 Pickup 클래스
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+    TSubclassOf<AWeaponPickup> WeaponPickupClass;
+
     UPROPERTY(EditAnywhere, Category = "Input")
     class UInputMappingContext* DefaultMappingContext;
 
@@ -60,6 +75,10 @@ public:
 
     UPROPERTY(EditAnywhere, Category = "Input")
     class UInputAction* ReloadAction;
+
+    // F키 상호작용 입력 액션
+    UPROPERTY(EditAnywhere, Category = "Input")
+    class UInputAction* InteractAction;
 
     // 스킬 입력 액션
     UPROPERTY(EditAnywhere, Category = "Input")
@@ -127,12 +146,19 @@ private:
     bool EquipRPG();
     void UnequipRPG();
 
+    UPROPERTY()
+    AWeaponPickup* NearbyWeaponPickup = nullptr;
+
 public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class USpringArmComponent* SpringArmComp;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     class UCameraComponent* CameraComp;
+
+    // 1인칭 팔 메시
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+    class USkeletalMeshComponent* FirstPersonArmsMesh;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
     float MaxHealth = 100.f;
@@ -154,6 +180,23 @@ public:
     void StartFire();
     void StopFire();
 
+    // 바닥 총 감지/교체
+    void SetNearbyWeaponPickup(AWeaponPickup* NewPickup);
+    void Interact();
+    void EquipWeapon();
+    void EquipWeapon(TSubclassOf<class AWeaponBase> NewWeaponClass);
+    void DropCurrentWeapon();
+
+    void EquipRifle();
+    void EquipShotgun();
+    void EquipPistol();
+    void ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass);
+
+    // 무기 발사 시 카메라 반동 처리
+    void ApplyWeaponRecoil(float RecoilPitch, float RecoilYaw);
+
+    void PlayArmsMontage(UAnimMontage* MontageToPlay);
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
     class UAnimMontage* DashMontage;
 
@@ -174,10 +217,10 @@ public:
     FTimerHandle DashCooldownTimerHandle; // 쿨타임 종료용 타이머 핸들
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-    float MinViewPitch = -53.5f;     // 카메라 최소 각도
+    float MinViewPitch = -20.0f;     // 카메라 최소 각도
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-    float MaxViewPitch = 80.0f;     // 카메라 최대 각도
+    float MaxViewPitch = 60.0f;     // 카메라 최대 각도
 
     float GetCurrentHealth() const { return CurrentHealth; }
     float GetMaxHealth() const { return MaxHealth; }
@@ -186,16 +229,6 @@ public:
     class USkillComponent* GetSkillComponent() const { return SkillComp; }
     float GetDashCooldown() const { return DashCooldown; }
     float GetRemainingCooldown() const;
-
-    void EquipWeapon();
-
-    void EquipRifle();
-
-    void EquipShotgun();
-
-    void EquipPistol();
-
-    void ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass);
 
 protected:
     virtual void BeginPlay() override;

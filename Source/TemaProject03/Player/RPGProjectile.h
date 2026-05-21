@@ -29,7 +29,7 @@ protected:
 
     // 폭발 나이아가라 이펙트
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Effects")
-    class UNiagaraSystem* ExplosionEffect;
+    class UParticleSystem* ExplosionEffect;
 
     // 폭발 사운드
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Skill|Effects")

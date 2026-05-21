@@ -4,8 +4,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
-#include "NiagaraFunctionLibrary.h"
-#include "NiagaraSystem.h"
 #include "Engine/EngineTypes.h"
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
@@ -170,7 +168,12 @@ void ARPGProjectile::Explode()
     // 이펙트 재생
     if (ExplosionEffect)
     {
-        UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ExplosionEffect, GetActorLocation(), GetActorRotation());
+        UGameplayStatics::SpawnEmitterAtLocation(
+            GetWorld(),
+            ExplosionEffect,
+            GetActorLocation(),
+            GetActorRotation()
+        );
     }
 
     // 사운드 재생
