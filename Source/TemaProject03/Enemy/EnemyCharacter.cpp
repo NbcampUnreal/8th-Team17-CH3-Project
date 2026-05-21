@@ -62,11 +62,7 @@ void AEnemyCharacter::BeginPlay()
 
     StartLocation = GetActorLocation();
 
-    // 체력, 이동속도 초기화
-    InitEnemyStat();
-
-    // 시야 감지 값 초기화
-    InitPawnSensing();
+    ApplyEnemyData();
 }
 
 void AEnemyCharacter::Tick(float DeltaTime)
@@ -244,7 +240,7 @@ void AEnemyCharacter::OnDetectBeginOverlap(
         // 일단 근처 플레이어로 저장
         TargetPlayer = OtherActor;
 
-        UE_LOG(LogTemp, Warning, TEXT("Player Entered Detect Range: %s"), *OtherActor->GetName());
+        //UE_LOG(LogTemp, Warning, TEXT("Player Entered Detect Range: %s"), *OtherActor->GetName());
     }
 }
 
@@ -259,19 +255,6 @@ void AEnemyCharacter::OnDetectEndOverlap(
     if (!OtherActor)
     {
         return;
-    }
-
-    // 나간 Actor가 현재 타겟 플레이어라면 감지 해제
-    if (OtherActor == TargetPlayer)
-    {
-        // 플레이어가 범위에서 벗어나면 다시 원위치 코드
-        /*bPlayerInDetectRange = false;
-        bCanSeePlayer = false;*/
-
-        UE_LOG(LogTemp, Warning, TEXT("Player Left Detect Range: %s"), *OtherActor->GetName());
-
-        // 플레이어가 범위에서 벗어나면 다시 원위치 코드
-        //TargetPlayer = nullptr;
     }
 }
 
@@ -301,7 +284,7 @@ void AEnemyCharacter::OnSeePawn(APawn* SeenPawn)
     // 현재 타겟 플레이어 확정
     TargetPlayer = SeenPawn;
 
-    UE_LOG(LogTemp, Warning, TEXT("Player Seen By PawnSensing: %s"), *SeenPawn->GetName());
+    //UE_LOG(LogTemp, Warning, TEXT("Player Seen By PawnSensing: %s"), *SeenPawn->GetName());
 }
 
 bool AEnemyCharacter::CanDetectPlayer() const
@@ -667,7 +650,7 @@ void AEnemyCharacter::SetEnemyState(EEnemyState NewState)
 
     EnemyState = NewState;
 
-    UE_LOG(LogTemp, Warning, TEXT("Enemy State Changed"));
+    //UE_LOG(LogTemp, Warning, TEXT("Enemy State Changed"));
 }
 
 void AEnemyCharacter::PerformRangedAttack()

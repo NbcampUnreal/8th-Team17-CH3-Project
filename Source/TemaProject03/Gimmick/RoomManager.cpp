@@ -6,19 +6,15 @@ ARoomManager::ARoomManager()
     PrimaryActorTick.bCanEverTick = false;
 }
 
-void ARoomManager::OnMonsterKilled()
+void ARoomManager::OpenLinkedPortals()
 {
-    MonsterCount--;
-
-    if (MonsterCount <= 0)
+    for (APortal* Portal : LinkedPortals)
     {
-        for (APortal* Portal : LinkedPortals)
+        if (Portal)
         {
-            if (Portal)
-            {
-                Portal->SetPortalActive(true);
-            }
+            Portal->SetPortalActive(true);
         }
-        UE_LOG(LogTemp, Warning, TEXT("Room Cleared! Portals Opened."));
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("Room Cleared! Portals Opened."));
 }

@@ -5,10 +5,12 @@
 #include "TemaProject03/Gimmick/Portal.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
+#include "TemaProject03/Gimmick/RoomManager.h"
 
 AEnemySpawner::AEnemySpawner()
 {
-    // Tick 사용 안함
+    // Tick 사용 안 함
     PrimaryActorTick.bCanEverTick = false;
 }
 
@@ -16,140 +18,239 @@ void AEnemySpawner::BeginPlay()
 {
     Super::BeginPlay();
 
+    // =========================
+    // Portal Init
+    // =========================
 
+    // 게임 시작 시 포탈 비활성화
     AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
     if (APortal* Portal = Cast<APortal>(PortalActor))
     {
         Portal->SetPortalActive(false);
     }
 
-    CurrentEnemyCount = MaxSpawnCount; 
+    // =========================
+    // Runtime Data Init
+    // =========================
 
-    // 게임 시작 시 Enemy 생성
-    SpawnEnemies();
+    CurrentAliveEnemies = 0;
+    KillCount = 0;
+
+    // =========================
+    // Spawn Timer Start
+    // =========================
+
+    // 일정 시간마다 현재 몬스터 수를 확인해서 부족하면 스폰
+    GetWorldTimerManager().SetTimer(
+        SpawnTimerHandle,
+        this,
+        &AEnemySpawner::MaintainEnemyCount,
+        SpawnInterval,
+        true
+    );
+
+    // 시작하자마자 한 번 채우기
+    MaintainEnemyCount();
 }
 
-void AEnemySpawner::SpawnEnemies()
+void AEnemySpawner::MaintainEnemyCount()
+{
+    // 목표 처치 수를 달성했으면 더 이상 스폰하지 않음
+    if (KillCount >= TargetKillCount)
+    {
+        return;
+    }
+
+    // 현재 살아있는 몬스터가 최대 유지 수보다 적으면 1마리씩 보충
+    if (CurrentAliveEnemies < MaxAliveEnemies)
+    {
+        SpawnEnemy();
+    }
+}
+
+void AEnemySpawner::SpawnEnemy()
 {
     // =========================
     // Validation Check
     // =========================
 
-    // 생성할 Enemy 클래스가 없으면 종료
     if (!EnemyClass)
     {
         UE_LOG(LogTemp, Error, TEXT("EnemyClass is NULL"));
-
         return;
     }
 
-    // 등록된 SpawnPoint가 없으면 종료
     if (SpawnPoints.Num() == 0)
     {
         UE_LOG(LogTemp, Error, TEXT("SpawnPoints is Empty"));
-
         return;
     }
+
+    // =========================
+    // Random Spawn Point
+    // =========================
+
+    const int32 RandomIndex = FMath::RandRange(0, SpawnPoints.Num() - 1);
+    AActor* SelectedPoint = SpawnPoints[RandomIndex];
+
+    if (!SelectedPoint)
+    {
+        return;
+    }
+
+    // =========================
+    // Spawn Parameter
+    // =========================
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    // =========================
+    // Spawn Location
+    // =========================
+
+    FVector RandomOffset = FMath::VRand() * SpawnRadius;
+    RandomOffset.Z = 0.0f;
+
+    const FVector SpawnLocation =
+        SelectedPoint->GetActorLocation() + RandomOffset;
+
+    const FRotator SpawnRotation =
+        SelectedPoint->GetActorRotation();
 
     // =========================
     // Spawn Enemy
     // =========================
 
-    // 최대 스폰 개수만큼 반복 생성
-    for (int32 i = 0; i < MaxSpawnCount; i++)
+    AEnemyCharacter* SpawnedEnemy =
+        GetWorld()->SpawnActor<AEnemyCharacter>(
+            EnemyClass,
+            SpawnLocation,
+            SpawnRotation,
+            SpawnParams
+        );
+
+    if (!SpawnedEnemy)
     {
-        // =========================
-        // Random Spawn Point
-        // =========================
+        return;
+    }
 
-        // SpawnPoints 배열 중 랜덤 인덱스 선택
-        int32 RandomIndex =
-            FMath::RandRange(0, SpawnPoints.Num() - 1);
+    // =========================
+    // Enemy Data Apply
+    // =========================
 
-        // 선택된 SpawnPoint 저장
-        AActor* SelectedPoint =
-            SpawnPoints[RandomIndex];
+    SpawnedEnemy->EnemyDataTable = EnemyDataTable;
+    SpawnedEnemy->EnemyDataRowName = EnemyDataRowName;
+    SpawnedEnemy->ApplyEnemyData();
 
-        // SpawnPoint가 없으면 다음 반복으로 이동
-        if (!SelectedPoint)
+    // AI Controller 생성
+    SpawnedEnemy->SpawnDefaultController();
+
+    // 현재 살아있는 몬스터 수 증가
+    CurrentAliveEnemies++;
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("Enemy Spawned / Alive: %d / Kill: %d / Target: %d"),
+        CurrentAliveEnemies,
+        KillCount,
+        TargetKillCount
+    );
+}
+
+void AEnemySpawner::OnEnemyKilled()
+{
+    // =========================
+    // Count Update
+    // =========================
+
+    CurrentAliveEnemies = FMath::Max(0, CurrentAliveEnemies - 1);
+    KillCount++;
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            999,    // 같은 ID라서 한 줄 갱신
+            2.0f,
+            FColor::Yellow,
+            FString::Printf(
+                TEXT("Kill Count : %d / %d   Alive : %d"),
+                KillCount,
+                TargetKillCount,
+                CurrentAliveEnemies
+            )
+        );
+    }
+
+    // =========================
+    // Upgrade Milestone
+    // =========================
+
+    if (KillCount == 30 || KillCount == 50 || KillCount == 70)
+    {
+        UE_LOG(LogTemp, Warning,
+            TEXT("Upgrade Choice Trigger / KillCount: %d"),
+            KillCount
+        );
+
+        // TODO:
+        // 여기서 업그레이드 UI 담당 쪽 함수나 이벤트 호출
+        // 예: GameMode, PlayerController, UpgradeManager 등
+    }
+
+    // =========================
+    // Target Kill Count Check
+    // =========================
+
+    if (KillCount >= TargetKillCount)
+    {
+        UE_LOG(LogTemp, Error,
+            TEXT("Target Kill Count Reached! Opening Portal...")
+        );
+
+        // 더 이상 몬스터 스폰하지 않도록 타이머 정지
+        GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
+
+        // 남아있는 몬스터 제거
+        ClearAliveEnemies();
+
+        // 포탈 오픈
+        AActor* RoomManagerActor =
+            UGameplayStatics::GetActorOfClass(GetWorld(), ARoomManager::StaticClass());
+
+        if (ARoomManager* RoomManager = Cast<ARoomManager>(RoomManagerActor))
         {
-            continue;
-        }
-
-        // =========================
-        // Spawn Parameter
-        // =========================
-
-        // Enemy 생성 시 충돌 처리 설정
-        // 겹쳐도 가능한 위치에 강제로 생성
-        FActorSpawnParameters SpawnParams;
-
-        SpawnParams.SpawnCollisionHandlingOverride =
-            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-        // =========================
-        // Spawn Enemy
-        // =========================
-
-        // SpawnPoint 기준 랜덤 위치 생성
-        FVector RandomOffset =
-            FMath::VRand() * SpawnRadius;
-
-        // 높이값은 유지
-        RandomOffset.Z = 0.0f;
-
-        // 최종 스폰 위치 계산
-        FVector SpawnLocation =
-            SelectedPoint->GetActorLocation() + RandomOffset;
-
-        // 선택된 SpawnPoint 위치에 Enemy 생성
-        AEnemyCharacter* SpawnedEnemy =
-            GetWorld()->SpawnActor<AEnemyCharacter>(
-                EnemyClass,
-                SpawnLocation,
-                SelectedPoint->GetActorRotation(),
-                SpawnParams
-            );
-
-        // Enemy 생성 성공 시
-        if (SpawnedEnemy)
-        {
-
-            SpawnedEnemy->EnemyDataTable = EnemyDataTable;
-            SpawnedEnemy->EnemyDataRowName = EnemyDataRowName;
-
-            SpawnedEnemy->ApplyEnemyData();
-
-            // Enemy AI Controller 생성
-            SpawnedEnemy->SpawnDefaultController();
-
-            UE_LOG(LogTemp, Warning, TEXT("Enemy Spawned With Data Row: %s"),
-                *EnemyDataRowName.ToString());
+            RoomManager->OpenLinkedPortals();
         }
     }
 }
 
-// 생성되는 몬스터가 다 죽으면 포탈 생성
-void AEnemySpawner::OnEnemyKilled()
+void AEnemySpawner::ClearAliveEnemies()
 {
-    // 적이 죽을 때마다 카운트 감소
-    CurrentEnemyCount--;
+    // =========================
+    // Find All Enemy
+    // =========================
 
-    UE_LOG(LogTemp, Log, TEXT("Enemy Killed. Remaining: %d"), CurrentEnemyCount);
+    TArray<AActor*> FoundEnemies;
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(),
+        AEnemyCharacter::StaticClass(),
+        FoundEnemies
+    );
 
+    // =========================
+    // Destroy All Enemy
+    // =========================
 
-    // 모든 적을 처치했는지 확인
-    if (CurrentEnemyCount <= 0)
+    for (AActor* EnemyActor : FoundEnemies)
     {
-        UE_LOG(LogTemp, Error, TEXT("All Enemies Defeated! Opening Portal..."));
-
-        // 월드에서 포탈을 찾아 OpenPortal 함수 실행
-        AActor* FoundActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
-        APortal* TargetPortal = Cast<APortal>(FoundActor);
-
-        if (TargetPortal)
+        if (EnemyActor)
         {
-            TargetPortal->OpenPortal();
+            EnemyActor->Destroy();
         }
     }
+
+    CurrentAliveEnemies = 0;
+
+    UE_LOG(LogTemp, Warning, TEXT("All remaining enemies cleared."));
 }

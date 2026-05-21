@@ -219,7 +219,7 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         bool IsTargetInAttackRange() const;
 
         // 공격 시도
-        void TryAttack();
+        virtual void TryAttack();
 
     public:
         // 근접 공격
@@ -227,7 +227,7 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void PerformMeleeAttack();
 
         UFUNCTION(BlueprintCallable)
-        void OnAttackEnd();
+        virtual void OnAttackEnd();
 
         // 적 죽음
         UFUNCTION(BlueprintCallable)
@@ -262,10 +262,10 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void ResetAttack();
 
         // 상태 갱신
-        void UpdateEnemyState();
+        virtual void UpdateEnemyState();
 
         // 현재 상태 실행
-        void HandleEnemyState(float DeltaTime);
+        virtual void HandleEnemyState(float DeltaTime);
 
         // 상태 변경
         void SetEnemyState(EEnemyState NewState);

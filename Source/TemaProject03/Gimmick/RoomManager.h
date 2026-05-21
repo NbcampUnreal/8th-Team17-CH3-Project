@@ -16,13 +16,21 @@ public:
     ARoomManager();
 
 protected:
-    UPROPERTY(EditAnywhere, Category = "Room Settings")
+    // =========================
+    // Portal Setting
+    // =========================
+
+    // 현재 Room과 연결된 포탈들
+    // 클리어 조건 달성 시 활성화
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Room Settings")
     TArray<APortal*> LinkedPortals;
 
-    UPROPERTY(EditAnywhere, Category = "Room Settings")
-    int32 MonsterCount = 0;
-
 public:
+    // =========================
+    // Room Clear Function
+    // =========================
+
+    // 방 클리어 시 연결된 포탈 활성화
     UFUNCTION(BlueprintCallable)
-    void OnMonsterKilled();
+    void OpenLinkedPortals();
 };

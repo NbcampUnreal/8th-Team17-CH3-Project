@@ -31,10 +31,20 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
     TSubclassOf<AEnemyCharacter> EnemyClass;
 
-    // 최대 스폰 개수
-    // BeginPlay에서 반복 생성할 Enemy 수
+    // 최대 유지 몬스터 수
+    // 현재 살아있는 몬스터 수가 이 값보다 적으면 계속 스폰
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
-    int32 MaxSpawnCount = 5;
+    int32 MaxAliveEnemies = 30;
+
+    // 목표 처치 수
+    // 이 수치를 달성하면 스폰 종료 + 포탈 생성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    int32 TargetKillCount = 100;
+
+    // 몬스터 스폰 체크 간격
+    // 몇 초마다 현재 몬스터 수를 확인해서 부족하면 스폰
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    float SpawnInterval = 1.0f;
 
     // 여러 스폰 위치
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
@@ -58,16 +68,39 @@ protected:
     FName EnemyDataRowName;
 
     // =========================
+    // Runtime Data
+    // =========================
+
+    // 현재 살아있는 몬스터 수
+    // 스폰 시 증가 / 사망 시 감소
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner")
+    int32 CurrentAliveEnemies = 0;
+
+    // 누적 처치 수
+    // 몬스터 사망 시 증가
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner")
+    int32 KillCount = 0;
+
+    // 몬스터 스폰 반복 체크용 타이머
+    FTimerHandle SpawnTimerHandle;
+
+    // =========================
     // Spawn Function
     // =========================
 
-    // Enemy 생성 함수
-    // BeginPlay에서 호출
-    void SpawnEnemies();
+    // 몬스터 수 유지 체크 함수
+    // SpawnInterval마다 호출
+    void MaintainEnemyCount();
+
+    // 몬스터 1마리 생성 함수
+    void SpawnEnemy();
+
+    // 남아있는 몬스터 전부 제거
+    // 목표 KillCount 달성 시 호출
+    void ClearAliveEnemies();
 
 public:
+    // 몬스터 사망 시 호출
+    // EnemyCharacter -> Spawner 로 알림
     void OnEnemyKilled();
-
-protected:
-    int32 CurrentEnemyCount = 0;
 };
