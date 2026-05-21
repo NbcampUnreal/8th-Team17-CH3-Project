@@ -24,7 +24,9 @@ public:
     FTimerHandle SkillCooldownTimerHandle;
     FTimerHandle SkillCooldownTimerHandle_2;
 
+    UFUNCTION(BlueprintCallable)
     void UpdateHUD_HP();
+
     void UpdateHUD_Ammo();
     void UpdateHUD_Reload(bool bIsReload);
     void SkillCooldownTimer();
