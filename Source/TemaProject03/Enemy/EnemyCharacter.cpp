@@ -174,6 +174,10 @@ void AEnemyCharacter::LoadEnemyData()
     );
 }
 
+// killcount <= 30 == HP + 100 , Attack + 20
+// Auto
+// 몬스터 killcount가 20, 25, 30, 40, 60, 80 이상일때 State 능력상승
+
 void AEnemyCharacter::InitEnemyStat()
 {
     // 현재 체력을 최대 체력으로 초기화

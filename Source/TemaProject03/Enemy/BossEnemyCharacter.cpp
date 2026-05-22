@@ -49,6 +49,32 @@ void ABossEnemyCharacter::TryAttack()
     Super::TryAttack();
 }
 
+void ABossEnemyCharacter::OnHitEnd()
+{
+    Super::OnHitEnd();
+
+    BossState = EBossState::Chase;
+
+    UE_LOG(LogTemp, Warning, TEXT("Boss Hit End"));
+}
+
+void ABossEnemyCharacter::ApplyDamage(float DamageAmount)
+{
+    Super::ApplyDamage(DamageAmount);
+
+    if (EnemyState == EEnemyState::Dead)
+    {
+        BossState = EBossState::Dead;
+        return;
+    }
+
+    if (EnemyState == EEnemyState::Hit)
+    {
+        BossState = EBossState::Hit;
+        return;
+    }
+}
+
 void ABossEnemyCharacter::OnAttackEnd()
 {
     bIsAttacking = false;

@@ -234,7 +234,7 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void DestroyEnemy();
 
         UFUNCTION(BlueprintCallable)
-        void OnHitEnd();
+        virtual void OnHitEnd();
 
     protected:
         // 공격 방식
@@ -278,7 +278,7 @@ public:
 
     void PerformRangedAttack();
 
-    void ApplyDamage(float DamageAmount);
+    virtual void ApplyDamage(float DamageAmount);
 
     // =========================
     // Basic Stat

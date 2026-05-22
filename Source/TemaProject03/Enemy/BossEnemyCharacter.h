@@ -30,6 +30,8 @@ class TEMAPROJECT03_API ABossEnemyCharacter : public AEnemyCharacter
         virtual void UpdateEnemyState() override;
         virtual void HandleEnemyState(float DeltaTime) override;
         virtual void TryAttack() override;
+        virtual void OnHitEnd() override;
+        virtual void ApplyDamage(float DamageAmount) override;
 
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss|State")
         EBossState BossState = EBossState::Idle;
