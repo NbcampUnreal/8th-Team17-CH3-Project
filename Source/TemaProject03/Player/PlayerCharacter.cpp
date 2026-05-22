@@ -9,6 +9,11 @@
 #include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
+#include "Camera/CameraShakeBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "Particles/ParticleSystem.h"
+
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "WeaponPickup.h"
@@ -683,21 +688,61 @@ void APlayerCharacter::UnequipRPG()
 
 void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
+    if (CurrentHealth <= 0.0f)
+    {
+        return;
+    }
+
     CurrentHealth -= DamageAmount;
+    CurrentHealth = FMath::Clamp(CurrentHealth, 0.0f, MaxHealth);
+
+    if (HitSound)
+    {
+        UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+    }
+
+    if (HitEffect)
+    {
+        const FVector EffectLocation =
+            GetActorLocation()
+            + GetActorForwardVector() * HitEffectForwardOffset
+            + FVector(0.0f, 0.0f, HitEffectZOffset);
+
+        const FRotator EffectRotation = GetActorRotation();
+
+        UGameplayStatics::SpawnEmitterAtLocation(
+            GetWorld(),
+            HitEffect,
+            EffectLocation,
+            EffectRotation
+        );
+    }
 
     if (APController* PlayerController = Cast<APController>(GetController()))
     {
         PlayerController->UpdateHUD_HP();
+
+        if (HitCameraShake)
+        {
+            PlayerController->ClientStartCameraShake(HitCameraShake);
+        }
     }
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
 
-    GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("HP: %f"), CurrentHealth));
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            2.f,
+            FColor::Red,
+            FString::Printf(TEXT("HP: %f"), CurrentHealth)
+        );
+    }
 
-    if (CurrentHealth <= 0)
+    if (CurrentHealth <= 0.0f)
     {
         UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
-
         Destroy();
     }
 }

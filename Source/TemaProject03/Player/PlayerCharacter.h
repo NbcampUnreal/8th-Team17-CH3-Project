@@ -135,12 +135,32 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|RPG")
     FVector RPGAttachScale = FVector(1.0f, 1.0f, 1.0f);
 
-    //효과
+    // 효과
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
 
     UPROPERTY()
     UWeaponEffectBase* CurrentEffect = nullptr;
+
+    // 플레이어가 피해를 입었을 때 재생할 피격 사운드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    class USoundBase* HitSound;
+
+    // 플레이어가 피해를 입었을 때 생성할 피격 파티클 이펙트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    class UParticleSystem* HitEffect;
+
+    // 플레이어가 피해를 입었을 때 재생할 카메라 흔들림 클래스
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    TSubclassOf<class UCameraShakeBase> HitCameraShake;
+
+    // 피격 이펙트를 캐릭터 기준 앞쪽으로 얼마나 띄워서 생성할지 설정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    float HitEffectForwardOffset = 30.0f;
+
+    // 피격 이펙트를 캐릭터 기준 위쪽으로 얼마나 올려서 생성할지 설정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    float HitEffectZOffset = 40.0f;
 
 private:
     AActor* EquippedRPGActor = nullptr;
