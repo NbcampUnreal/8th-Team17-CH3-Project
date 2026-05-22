@@ -59,6 +59,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "Input")
     UInputAction* PistolAction;
 
+    UPROPERTY()
+    TMap<TSubclassOf<AWeaponBase>, int32> SavedAmmoMap;
+
     // 손에 무기를 붙일 소켓 이름
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
     FName WeaponAttachSocketName = TEXT("hand_rSocket");

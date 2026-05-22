@@ -423,6 +423,10 @@ void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
         CurrentWeaponType = EWeaponType::None;
         return;
     }
+    if (SavedAmmoMap.Contains(NewWeaponClass))
+    {
+        CurrentWeapon->CurrentAmmo = SavedAmmoMap[NewWeaponClass];
+    }
 
     CurrentWeapon->SetOwner(this);
 
@@ -473,6 +477,8 @@ void APlayerCharacter::DropCurrentWeapon()
     {
         return;
     }
+
+    SavedAmmoMap.Add(CurrentWeapon->GetClass(), CurrentWeapon->CurrentAmmo);
 
     if (WeaponPickupClass)
     {
