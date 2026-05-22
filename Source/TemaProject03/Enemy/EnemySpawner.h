@@ -53,7 +53,7 @@ protected:
     // 스폰 반경
     // Spawner 기준 주변 랜덤 위치에 생성
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
-    float SpawnRadius = 500.0f;
+    float SpawnRadius = 100.0f;
 
     // =========================
     // Enemy Data Setting
