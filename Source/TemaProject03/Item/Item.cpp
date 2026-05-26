@@ -54,10 +54,6 @@ void AItem::OnItemOverlap(
     }
 }
 
-void AItem::UseItem(APlayerCharacter* Player)
-{
-}
-
 void AItem::UseItem_Implementation(APlayerCharacter* Player)
 {
 }

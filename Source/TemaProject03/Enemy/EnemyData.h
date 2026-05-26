@@ -55,6 +55,42 @@ public:
     EEnemyAttackType AttackType = EEnemyAttackType::Melee;
 
     // =========================
+    // Jump Attack
+    // =========================
+
+    // 점프 공격 사용 여부
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bUseJumpAttack = false;
+
+    // 점프 공격 최소 거리
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackMinRange = 250.0f;
+
+    // 점프 공격 최대 거리
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackMaxRange = 900.0f;
+
+    // 점프 공격 데미지
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackDamage = 50.0f;
+
+    // 점프 공격 범위
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackRadius = 250.0f;
+
+    // 점프 공격 쿨타임
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackCooldown = 5.0f;
+
+    // 점프 공격 착지 보정 거리
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackLandingOffset = 100.0f;
+
+    // 점프 공격 이동 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float JumpAttackMoveTime = 0.5f;
+
+    // =========================
     // Patrol
     // =========================
 

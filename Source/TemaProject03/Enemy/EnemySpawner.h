@@ -26,34 +26,54 @@ protected:
     // Spawn Setting
     // =========================
 
-    // 스폰할 Enemy 클래스 지정
-    // BP_Enemy_A를 Details에서 연결해서 사용
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    // 일반 몬스터 클래스
+    // BP_Enemy_A / BP_Enemy_B 등을 Details에서 지정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Class")
     TSubclassOf<AEnemyCharacter> EnemyClass;
 
-    // 최대 유지 몬스터 수
-    // 현재 살아있는 몬스터 수가 이 값보다 적으면 계속 스폰
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
-    int32 MaxAliveEnemies = 30;
+    // 이 스포너가 점프 몬스터를 스폰하는지 여부
+    // false = BP_EnemyCharacter_A / true = BP_EnemyCharacter_B
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Class")
+    bool bSpawnJumpEnemy = false;
 
-    // 목표 처치 수
-    // 이 수치를 달성하면 스폰 종료 + 포탈 생성
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
-    int32 TargetKillCount = 100;
+    // 보스 몬스터 클래스
+    // 150킬마다 등장할 보스 BP를 Details에서 지정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Class")
+    TSubclassOf<AEnemyCharacter> BossClass;
+
+    // 최대 유지 몬스터 수
+    // 현재 살아있는 일반 몬스터 수가 이 값보다 적으면 계속 스폰
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Spawn")
+    int32 MaxAliveEnemies = 20;
 
     // 몬스터 스폰 체크 간격
-    // 몇 초마다 현재 몬스터 수를 확인해서 부족하면 스폰
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    // 몇 초마다 몬스터 수를 확인해서 부족하면 1마리씩 보충
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Spawn")
     float SpawnInterval = 1.0f;
 
     // 여러 스폰 위치
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    // 맵에 배치한 SpawnPoint Actor들을 배열로 지정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Spawn")
     TArray<AActor*> SpawnPoints;
 
     // 스폰 반경
-    // Spawner 기준 주변 랜덤 위치에 생성
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner")
+    // 선택된 SpawnPoint 기준으로 주변 랜덤 위치에 생성
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Spawn")
     float SpawnRadius = 100.0f;
+
+    // =========================
+    // Kill Count Setting
+    // =========================
+
+    // 일반 몬스터 강화 간격
+    // 예: 50이면 50킬마다 다음 스폰 몬스터 스탯 상승
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Kill Count")
+    int32 StatUpgradeInterval = 50;
+
+    // 보스 등장 간격
+    // 예: 150이면 150킬마다 보스 1마리 스폰
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Kill Count")
+    int32 BossSpawnInterval = 150;
 
     // =========================
     // Enemy Data Setting
@@ -63,23 +83,36 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Enemy Data")
     UDataTable* EnemyDataTable;
 
-    // DataTable에서 사용할 Row 이름
+    // 자동선택 기능 추가로 나중에 삭제 가능
+    // DataTable에서 사용할 일반 몬스터 Row 이름
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Enemy Data")
     FName EnemyDataRowName;
+
+    // DataTable에서 사용할 보스 몬스터 Row 이름
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Enemy Data")
+    FName BossDataRowName;
 
     // =========================
     // Runtime Data
     // =========================
 
-    // 현재 살아있는 몬스터 수
-    // 스폰 시 증가 / 사망 시 감소
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner")
+    // 현재 살아있는 일반 몬스터 수
+    // 일반 몬스터 스폰 시 증가 / 사망 시 감소
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner|Runtime")
     int32 CurrentAliveEnemies = 0;
 
-    // 누적 처치 수
-    // 몬스터 사망 시 증가
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner")
-    int32 KillCount = 0;
+    // 전체 일반 몬스터 처치 수
+    static int32 GlobalKillCount;
+
+    // 전체 보스 처치 수
+    static int32 GlobalBossKillCount;
+
+    // 전체 몬스터 강화 단계
+    static int32 GlobalStatLevel;
+
+    // 생존 시간 계산용 시작 시간
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner|Runtime")
+    float GameStartTime = 0.0f;
 
     // 몬스터 스폰 반복 체크용 타이머
     FTimerHandle SpawnTimerHandle;
@@ -92,15 +125,46 @@ protected:
     // SpawnInterval마다 호출
     void MaintainEnemyCount();
 
-    // 몬스터 1마리 생성 함수
+    // 일반 몬스터 1마리 생성
     void SpawnEnemy();
 
-    // 남아있는 몬스터 전부 제거
-    // 목표 KillCount 달성 시 호출
-    void ClearAliveEnemies();
+    // 보스 몬스터 1마리 생성
+    void SpawnBoss();
+
+    // 현재 강화 단계에 맞는 EnemyData RowName 반환
+    FName GetEnemyRowNameByStatLevel(bool bIsJumpEnemy) const;
+
+    // 현재 살아있는 몬스터들에게 현재 강화 단계 데이터 다시 적용
+    void ApplyCurrentLevelToAliveEnemies();
 
 public:
-    // 몬스터 사망 시 호출
-    // EnemyCharacter -> Spawner 로 알림
+    // =========================
+    // Kill Count Function
+    // =========================
+
+    // 일반 몬스터 사망 시 EnemyCharacter에서 호출
     void OnEnemyKilled();
+
+    // 보스 몬스터 사망 시 BossCharacter에서 호출 예정
+    void OnBossKilled();
+
+    // =========================
+    // UI Getter Function
+    // =========================
+
+    // UI에서 현재 일반 몬스터 처치 수 확인
+    UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
+    int32 GetKillCount() const;
+
+    // UI에서 현재 보스 처치 수 확인
+    UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
+    int32 GetBossKillCount() const;
+
+    // UI에서 생존 시간 확인
+    UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
+    float GetSurvivalTime() const;
+
+    // UI에서 현재 강화 단계 확인
+    UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
+    int32 GetCurrentStatLevel() const;
 };
