@@ -3,6 +3,7 @@
 #include "BossEnemyCharacter.h"
 #include "TimerManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "EnemySpawner.h"
 #include "Kismet/GameplayStatics.h"
 
 void ABossEnemyCharacter::UpdateEnemyState()
@@ -119,6 +120,12 @@ void ABossEnemyCharacter::ApplyDamage(float DamageAmount)
     {
         BossState = EBossState::Dead;
         bIsUsingPattern = false;
+
+        if (OwnerSpawner)
+        {
+            OwnerSpawner->OnBossKilled();
+        }
+
         return;
     }
 

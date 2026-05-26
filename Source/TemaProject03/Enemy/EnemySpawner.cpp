@@ -59,6 +59,38 @@ void AEnemySpawner::BeginPlay()
     MaintainEnemyCount();
 }
 
+void AEnemySpawner::TrySpawnBossFromBossSpawner()
+{
+    TArray<AActor*> FoundSpawners;
+
+    UGameplayStatics::GetAllActorsOfClass(
+        GetWorld(),
+        AEnemySpawner::StaticClass(),
+        FoundSpawners
+    );
+
+    for (AActor* Actor : FoundSpawners)
+    {
+        AEnemySpawner* Spawner = Cast<AEnemySpawner>(Actor);
+
+        if (!Spawner)
+        {
+            continue;
+        }
+
+        if (Spawner->bIsBossSpawner)
+        {
+            Spawner->SpawnBoss();
+
+            UE_LOG(LogTemp, Warning, TEXT("Boss Spawn Triggered From Boss Spawner"));
+
+            return;
+        }
+    }
+
+    UE_LOG(LogTemp, Error, TEXT("Boss Spawner Not Found"));
+}
+
 void AEnemySpawner::MaintainEnemyCount()
 {
     if (CurrentAliveEnemies < MaxAliveEnemies)
@@ -169,6 +201,8 @@ void AEnemySpawner::SpawnBoss()
     {
         return;
     }
+
+    SpawnedBoss->SetOwnerSpawner(this);
 
     SpawnedBoss->EnemyDataTable = EnemyDataTable;
     SpawnedBoss->EnemyDataRowName = BossDataRowName;
@@ -294,7 +328,7 @@ void AEnemySpawner::OnEnemyKilled()
     // 150킬마다 보스 등장
     if (BossSpawnInterval > 0 && GlobalKillCount % BossSpawnInterval == 0)
     {
-        SpawnBoss();
+        TrySpawnBossFromBossSpawner();
     }
 
     if (GEngine)

@@ -73,7 +73,12 @@ protected:
     // 보스 등장 간격
     // 예: 150이면 150킬마다 보스 1마리 스폰
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Kill Count")
-    int32 BossSpawnInterval = 150;
+    int32 BossSpawnInterval = 10;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawner|Boss")
+    bool bIsBossSpawner = false;
+
+    void TrySpawnBossFromBossSpawner();
 
     // =========================
     // Enemy Data Setting
