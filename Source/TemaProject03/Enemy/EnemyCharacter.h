@@ -8,11 +8,13 @@
 #include "EnemyData.h"
 #include "EnemyTypes.h"
 #include "TemaProject03/Player/PlayerCharacter.h"
-#include "DrawDebugHelpers.h"
 #include "EnemyCharacter.generated.h"
 
 class USphereComponent;
 class UPawnSensingComponent;
+class UAnimMontage;
+class AEnemySpawner;
+class AItem;
 
 UCLASS()
 class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
@@ -30,9 +32,23 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
 
     protected:
 
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop")
+        TSubclassOf<AItem> HealthDropItemClass;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+        float HealthDropChance = 0.4f;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop")
+        float DropLocationZOffset = 40.0f;
+
+        void TryDropHealthItem();
+
         // =========================
         // Attack Setting
         // =========================
+
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Attack")
+        bool bIsAttacking = false;
 
         // 근처 감지 범위
         // DetectSphere의 반경으로 사용
@@ -55,6 +71,55 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 현재 공격 가능한지 여부
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Attack")
         bool bCanAttack = true;
+
+        // 점프 공격 사용 여부
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        bool bUseJumpAttack = false;
+
+        // 점프 공격 최소 거리
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackMinRange = 250.0f;
+
+        // 점프 공격 최대 거리
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackMaxRange = 900.0f;
+
+        // 점프 공격 데미지
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackDamage = 50.0f;
+
+        // 점프 공격 범위
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackRadius = 250.0f;
+
+        // 점프 공격 쿨타임
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackCooldown = 5.0f;
+
+        // 점프 공격 가능 여부
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|JumpAttack")
+        bool bCanJumpAttack = true;
+
+        // 점프 공격 중인지 여부
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|JumpAttack")
+        bool bIsJumpAttacking = false;
+
+        // 점프 공격 착지 보정 거리
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackLandingOffset = 100.0f;
+
+        // 점프 공격 이동 시간
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|JumpAttack")
+        float JumpAttackMoveTime = 0.5f;
+
+        // 점프 공격 경과 시간
+        float JumpAttackElapsedTime = 0.0f;
+
+        // 점프 시작 위치
+        FVector JumpAttackStartLocation;
+
+        // 점프 착지 목표 위치
+        FVector JumpAttackTargetLocation;
 
         // =========================
         // Pawn Sensing Setting
@@ -157,6 +222,10 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Target")
         AActor* TargetPlayer;
 
+        // 이 몬스터를 소환한 스포너
+        UPROPERTY()
+        AEnemySpawner* OwnerSpawner = nullptr;
+
         // DetectSphere 안에 플레이어가 들어와 있는지 저장
         // 근처에 있는지 여부 확인용
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Target")
@@ -215,11 +284,34 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 플레이어 추적
         void ChaseTarget();
 
+        // 이동 정지
+        void StopEnemyMovement();
+
         // 공격 범위 안인지 확인
         bool IsTargetInAttackRange() const;
 
         // 공격 시도
         virtual void TryAttack();
+
+        // 점프 공격 가능 거리인지 확인
+        bool IsTargetInJumpAttackRange() const;
+
+        // 점프 공격 시도
+        void TryJumpAttack();
+
+        // 점프 공격 이동 처리
+        void HandleJumpAttack(float DeltaTime);
+
+        // 점프 공격 데미지 적용
+        UFUNCTION(BlueprintCallable)
+        void PerformJumpAttack();
+
+        // 점프 공격 종료
+        UFUNCTION(BlueprintCallable)
+        void OnJumpAttackEnd();
+
+        // 점프 공격 쿨타임 초기화
+        void ResetJumpAttack();
 
     public:
         // 근접 공격
@@ -234,30 +326,10 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void DestroyEnemy();
 
         UFUNCTION(BlueprintCallable)
-        void OnHitEnd();
+        virtual void OnHitEnd();
 
     protected:
-        // 공격 방식
         
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
-        bool bIsEvading = false;
-
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
-        EEnemyEvadePhase EvadePhase = EEnemyEvadePhase::None;
-
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Enemy|Evade")
-        float EvadeDirection = 0.0f;
-
-        float EvadeTimer = 0.0f;
-        float BackEvadeTime = 0.8f;
-        float SideEvadeTime = 1.0f;
-
-        int32 SideDirectionSign = 1;
-
-        void StartMeleeEvade();
-        void HandleMeleeEvade(float DeltaTime);
-        void EndMeleeEvade();
-
         // 공격 쿨타임 초기화
         void ResetAttack();
 
@@ -271,14 +343,21 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         void SetEnemyState(EEnemyState NewState);
 
         FTimerHandle AttackCooldownTimerHandle;
+
+        FTimerHandle JumpAttackCooldownTimerHandle;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Animation")
+        UAnimMontage* JumpAttackMontage = nullptr;
+
 public:
-    bool bIsAttacking = false;
 
-    FTimerHandle AttackDelayTimerHandle;
+    virtual void ApplyDamage(float DamageAmount);
 
-    void PerformRangedAttack();
+    // 소환한 스포너 저장
+    void SetOwnerSpawner(AEnemySpawner* InSpawner);
 
-    void ApplyDamage(float DamageAmount);
+    // 현재 Enemy 상태 반환
+    EEnemyState GetCurrentState() const;
 
     // =========================
     // Basic Stat
@@ -315,8 +394,6 @@ public:
 
     // 공격 타입
     // Melee = 근접 공격
-    // Ranged = 원거리 공격
-    // Both = 둘 다 사용
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Attack")
-    EEnemyAttackType AttackType = EEnemyAttackType::Ranged;
+    EEnemyAttackType AttackType = EEnemyAttackType::Melee;
 };

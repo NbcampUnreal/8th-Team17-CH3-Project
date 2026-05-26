@@ -41,6 +41,18 @@ public:
     UFUNCTION(BlueprintCallable)
     void UpdateHUD_HP();
 
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void ShowUpgradeChoice();
+
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void SelectHealthUpgrade();
+
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void SelectAttackUpgrade();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
+    float UpgradeAmount = 10.0f;
+
     void UpdateHUD_Ammo();
     void StartReloadUI();
     void UpdateHUD_Reload();

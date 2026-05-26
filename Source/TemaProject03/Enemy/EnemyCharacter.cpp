@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Perception/PawnSensingComponent.h"
+#include "TemaProject03/Item/Item.h"
 
 AEnemyCharacter::AEnemyCharacter()
 {
@@ -342,6 +343,19 @@ void AEnemyCharacter::ChaseTarget()
     AIController->MoveToActor(TargetPlayer, 5.0f);
 }
 
+void AEnemyCharacter::StopEnemyMovement()
+{
+    if (AAIController* AIController = Cast<AAIController>(GetController()))
+    {
+        AIController->StopMovement();
+    }
+
+    if (GetCharacterMovement())
+    {
+        GetCharacterMovement()->StopMovementImmediately();
+    }
+}
+
 bool AEnemyCharacter::IsTargetInAttackRange() const
 {
     if (!TargetPlayer)
@@ -380,21 +394,147 @@ void AEnemyCharacter::TryAttack()
         // 여기서 PerformMeleeAttack 호출하지 않음
         // 데미지는 AnimNotify_MeleeHit에서 PerformMeleeAttack 호출
         break;
+    }
+}
 
-    case EEnemyAttackType::Ranged:
+bool AEnemyCharacter::IsTargetInJumpAttackRange() const
+{
+    if (!TargetPlayer)
     {
-        bIsAttacking = true;
-
-        GetWorldTimerManager().SetTimer(AttackDelayTimerHandle, this, &AEnemyCharacter::PerformRangedAttack, 3.0f, false);
-
-        break;
+        return false;
     }
 
-    case EEnemyAttackType::Both:
+    FVector EnemyLocation = GetActorLocation();
+    FVector TargetLocation = TargetPlayer->GetActorLocation();
 
-        UE_LOG(LogTemp, Warning, TEXT("Both Attack"));
-        break;
+    EnemyLocation.Z = 0.0f;
+    TargetLocation.Z = 0.0f;
+
+    const float Distance = FVector::Dist(EnemyLocation, TargetLocation);
+
+    return Distance >= JumpAttackMinRange && Distance <= JumpAttackMaxRange;
+}
+
+void AEnemyCharacter::TryJumpAttack()
+{
+    if (!bUseJumpAttack || !bCanJumpAttack || bIsAttacking || bIsJumpAttacking || !TargetPlayer)
+    {
+        return;
     }
+
+    bIsAttacking = true;
+    bIsJumpAttacking = true;
+    bCanJumpAttack = false;
+
+    StopEnemyMovement();
+
+    JumpAttackElapsedTime = 0.0f;
+    JumpAttackStartLocation = GetActorLocation();
+
+    FVector EnemyLocation = GetActorLocation();
+    FVector TargetLocation = TargetPlayer->GetActorLocation();
+
+    FVector ToEnemy = EnemyLocation - TargetLocation;
+    ToEnemy.Z = 0.0f;
+    ToEnemy.Normalize();
+
+    JumpAttackTargetLocation = TargetLocation + (ToEnemy * JumpAttackLandingOffset);
+    JumpAttackTargetLocation.Z = EnemyLocation.Z;
+
+    if (JumpAttackMontage)
+    {
+        PlayAnimMontage(JumpAttackMontage);
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Jump Attack Start"));
+}
+
+void AEnemyCharacter::HandleJumpAttack(float DeltaTime)
+{
+    if (!bIsJumpAttacking)
+    {
+        return;
+    }
+
+    JumpAttackElapsedTime += DeltaTime;
+
+    const float Alpha = FMath::Clamp(JumpAttackElapsedTime / JumpAttackMoveTime, 0.0f, 1.0f);
+
+    FVector NewLocation = FMath::Lerp(
+        JumpAttackStartLocation,
+        JumpAttackTargetLocation,
+        Alpha
+    );
+
+    // 포물선 느낌용 Z 보정
+    const float JumpHeight = 250.0f;
+    NewLocation.Z += FMath::Sin(Alpha * PI) * JumpHeight;
+
+    SetActorLocation(NewLocation, true);
+
+    if (Alpha >= 1.0f)
+    {
+        PerformJumpAttack();
+        OnJumpAttackEnd();
+    }
+}
+
+void AEnemyCharacter::PerformJumpAttack()
+{
+    if (!TargetPlayer)
+    {
+        return;
+    }
+
+    const float Distance = FVector::Dist2D(
+        GetActorLocation(),
+        TargetPlayer->GetActorLocation()
+    );
+
+    if (Distance > JumpAttackRadius)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Jump Attack Miss"));
+        return;
+    }
+
+    APlayerCharacter* Player = Cast<APlayerCharacter>(TargetPlayer);
+
+    if (Player)
+    {
+        Player->ApplyDamage(JumpAttackDamage);
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("Jump Attack Hit / Damage: %.1f"),
+            JumpAttackDamage
+        );
+    }
+}
+
+void AEnemyCharacter::OnJumpAttackEnd()
+{
+    bIsJumpAttacking = false;
+    bIsAttacking = false;
+
+    StopEnemyMovement();
+
+    GetWorldTimerManager().SetTimer(
+        JumpAttackCooldownTimerHandle,
+        this,
+        &AEnemyCharacter::ResetJumpAttack,
+        JumpAttackCooldown,
+        false
+    );
+
+    SetEnemyState(EEnemyState::Chase);
+
+    UE_LOG(LogTemp, Warning, TEXT("Jump Attack End"));
+}
+
+void AEnemyCharacter::ResetJumpAttack()
+{
+    bCanJumpAttack = true;
+
+    UE_LOG(LogTemp, Warning, TEXT("Jump Attack Cooldown End"));
 }
 
 
@@ -419,10 +559,9 @@ void AEnemyCharacter::PerformMeleeAttack()
 void AEnemyCharacter::OnAttackEnd()
 {
     bIsAttacking = false;
+    bCanAttack = false;
 
-    StartMeleeEvade();
-
-    const float RandomCooldown = FMath::FRandRange(1.5f, 4.0f);
+    StopEnemyMovement();
 
     GetWorldTimerManager().SetTimer(
         AttackCooldownTimerHandle,
@@ -432,18 +571,45 @@ void AEnemyCharacter::OnAttackEnd()
         false
     );
 
-    UE_LOG(LogTemp, Warning, TEXT("Attack End Notify"));
+    UE_LOG(LogTemp, Warning, TEXT("Attack End / Wait Cooldown"));
 }
 
 void AEnemyCharacter::DestroyEnemy()
 {
-    AActor* SpawnerActor = UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass());
-    if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(SpawnerActor))
+    if (OwnerSpawner)
     {
-        Spawner->OnEnemyKilled();
+        OwnerSpawner->OnEnemyKilled();
     }
 
+    TryDropHealthItem();
+
     Destroy();
+}
+
+void AEnemyCharacter::TryDropHealthItem()
+{
+    if (!HealthDropItemClass || !GetWorld())
+    {
+        return;
+    }
+
+    if (FMath::FRand() > HealthDropChance)
+    {
+        return;
+    }
+
+    FVector DropLocation = GetActorLocation();
+    DropLocation.Z += DropLocationZOffset;
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    GetWorld()->SpawnActor<AItem>(
+        HealthDropItemClass,
+        DropLocation,
+        FRotator::ZeroRotator,
+        SpawnParams
+    );
 }
 
 void AEnemyCharacter::OnHitEnd()
@@ -465,96 +631,6 @@ void AEnemyCharacter::OnHitEnd()
 
     SetEnemyState(EEnemyState::Chase);
 }
-    
-void AEnemyCharacter::StartMeleeEvade()
-{
-    bIsEvading = true;
-    EvadePhase = EEnemyEvadePhase::Back;
-    EvadeDirection = 0.0f;   // Back
-
-    EvadeTimer = 0.0f;
-
-    SideDirectionSign *= -1;
-
-    AAIController* AIController = Cast<AAIController>(GetController());
-    if (AIController)
-    {
-        AIController->StopMovement();
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("Start Melee Evade"));
-}
-
-void AEnemyCharacter::HandleMeleeEvade(float DeltaTime)
-{
-    if (!TargetPlayer)
-    {
-        EndMeleeEvade();
-        return;
-    }
-
-    EvadeTimer += DeltaTime;
-
-    FVector EnemyLocation = GetActorLocation();
-    FVector TargetLocation = TargetPlayer->GetActorLocation();
-
-    FVector ToTarget = TargetLocation - EnemyLocation;
-    ToTarget.Z = 0.0f;
-    ToTarget.Normalize();
-
-    FVector MoveDirection = FVector::ZeroVector;
-
-    if (EvadePhase == EEnemyEvadePhase::Back)
-    {
-        MoveDirection = -ToTarget;
-
-        if (EvadeTimer >= BackEvadeTime)
-        {
-            EvadeTimer = 0.0f;
-
-            EvadePhase = SideDirectionSign > 0
-                ? EEnemyEvadePhase::Left
-                : EEnemyEvadePhase::Right;
-
-            EvadeDirection = SideDirectionSign > 0
-                ? -1.0f
-                : 1.0f;
-        }
-    }
-    else if (EvadePhase == EEnemyEvadePhase::Left || EvadePhase == EEnemyEvadePhase::Right)
-    {
-        FVector RightDirection = FVector::CrossProduct(ToTarget, FVector::UpVector);
-        RightDirection.Normalize();
-
-        if (EvadePhase == EEnemyEvadePhase::Left)
-        {
-            MoveDirection = -RightDirection;
-        }
-        else if (EvadePhase == EEnemyEvadePhase::Right)
-        {
-            MoveDirection = RightDirection;
-        }
-
-        if (EvadeTimer >= SideEvadeTime)
-        {
-            EndMeleeEvade();
-            return;
-        }
-    }
-
-    AddMovementInput(MoveDirection, 0.6f);
-}
-
-void AEnemyCharacter::EndMeleeEvade()
-{
-    bIsEvading = false;
-    EvadePhase = EEnemyEvadePhase::None;
-    EvadeDirection = 0.0f;
-
-    EvadeTimer = 0.0f;
-
-    UE_LOG(LogTemp, Warning, TEXT("End Melee Evade"));
-}
 
 void AEnemyCharacter::ResetAttack()
 {
@@ -575,7 +651,7 @@ void AEnemyCharacter::UpdateEnemyState()
         return;
     }
 
-    if (bIsEvading)
+    if (bIsJumpAttacking)
     {
         return;
     }
@@ -583,6 +659,12 @@ void AEnemyCharacter::UpdateEnemyState()
     if (!TargetPlayer)
     {
         SetEnemyState(EEnemyState::Idle);
+        return;
+    }
+
+    if (bUseJumpAttack && bCanJumpAttack && !bIsAttacking && IsTargetInJumpAttackRange())
+    {
+        SetEnemyState(EEnemyState::JumpAttack);
         return;
     }
 
@@ -603,13 +685,6 @@ void AEnemyCharacter::UpdateEnemyState()
 
 void AEnemyCharacter::HandleEnemyState(float DeltaTime)
 {
-    if (bIsEvading)
-    {
-        LookAtTarget(DeltaTime);
-        HandleMeleeEvade(DeltaTime);
-        return;
-    }
-
     switch (EnemyState)
     {
     case EEnemyState::Idle:
@@ -621,14 +696,34 @@ void AEnemyCharacter::HandleEnemyState(float DeltaTime)
         ChaseTarget();
         break;
 
-    case EEnemyState::Attack:
+    case EEnemyState::JumpAttack:
         LookAtTarget(DeltaTime);
 
-        ChaseTarget();
-
-        if (IsTargetInAttackRange() && bCanAttack)
+        if (bIsJumpAttacking)
         {
-            TryAttack();
+            HandleJumpAttack(DeltaTime);
+        }
+        else
+        {
+            TryJumpAttack();
+        }
+
+        break;
+
+    case EEnemyState::Attack:
+        LookAtTarget(DeltaTime);
+        StopEnemyMovement();
+
+        if (IsTargetInAttackRange())
+        {
+            if (bCanAttack && !bIsAttacking)
+            {
+                TryAttack();
+            }
+        }
+        else
+        {
+            SetEnemyState(EEnemyState::Chase);
         }
 
         break;
@@ -653,60 +748,6 @@ void AEnemyCharacter::SetEnemyState(EEnemyState NewState)
     //UE_LOG(LogTemp, Warning, TEXT("Enemy State Changed"));
 }
 
-void AEnemyCharacter::PerformRangedAttack()
-{
-    bIsAttacking = false;
-
-    bCanAttack = false;
-
-    if (!TargetPlayer)
-    {
-        return;
-    }
-
-    if (!IsTargetInAttackRange())
-    {
-        return;
-    }
-
-    APlayerCharacter* Player = Cast<APlayerCharacter>(TargetPlayer);
-
-    if (!Player)
-    {
-        return;
-    }
-
-    FVector Start = GetActorLocation();
-
-    FVector End = Player->GetActorLocation();
-
-    FHitResult Hit;
-
-    FCollisionQueryParams Params;
-
-    Params.AddIgnoredActor(this);
-
-    bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
-
-    DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1.f);
-
-    if (bHit)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Hit Actor: %s"), *Hit.GetActor()->GetName());
-
-        APlayerCharacter* HitPlayer = Cast<APlayerCharacter>(Hit.GetActor());
-
-        if (HitPlayer)
-        {
-            HitPlayer->ApplyDamage(20.f);
-
-            UE_LOG(LogTemp, Warning, TEXT("Player Hit"));
-        }
-    }
-
-    GetWorldTimerManager().SetTimer(AttackCooldownTimerHandle, this, &AEnemyCharacter::ResetAttack, AttackCooldown, false);
-}
-
 void AEnemyCharacter::ApplyDamage(float DamageAmount)
 {
     if (EnemyState == EEnemyState::Dead || CurrentHealth <= 0.0f)
@@ -728,7 +769,6 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         );
     }
 
-    // 죽었으면 Dead 상태로 전환
     if (CurrentHealth <= 0.0f)
     {
         CurrentHealth = 0.0f;
@@ -738,24 +778,18 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         SetEnemyState(EEnemyState::Dead);
 
         bIsAttacking = false;
-        bIsEvading = false;
         bCanAttack = false;
 
-        if (AAIController* AIController = Cast<AAIController>(GetController()))
-        {
-            AIController->StopMovement();
-        }
+        StopEnemyMovement();
 
         if (GetCharacterMovement())
         {
-            GetCharacterMovement()->StopMovementImmediately();
             GetCharacterMovement()->DisableMovement();
         }
 
         return;
     }
 
-    // 살아있으면 플레이어를 강제로 타겟으로 잡고 Hit 상태
     AActor* PlayerActor = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
 
     if (PlayerActor)
@@ -765,26 +799,26 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
         bCanSeePlayer = true;
     }
 
-    // 이미 Hit 상태면 데미지만 받고 Hit 애니 재시작은 안 함
     if (EnemyState == EEnemyState::Hit)
     {
         return;
     }
 
     bIsAttacking = false;
-    bIsEvading = false;
 
-    if (AAIController* AIController = Cast<AAIController>(GetController()))
-    {
-        AIController->StopMovement();
-    }
-
-    if (GetCharacterMovement())
-    {
-        GetCharacterMovement()->StopMovementImmediately();
-    }
+    StopEnemyMovement();
 
     SetEnemyState(EEnemyState::Hit);
+}
+
+void AEnemyCharacter::SetOwnerSpawner(AEnemySpawner* InSpawner)
+{
+    OwnerSpawner = InSpawner;
+}
+
+EEnemyState AEnemyCharacter::GetCurrentState() const
+{
+    return EnemyState;
 }
 
 void AEnemyCharacter::ApplyEnemyData()

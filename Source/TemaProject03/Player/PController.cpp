@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "PlayerCharacter.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
+#include "Blueprint/WidgetBlueprintLibrary.h"
 #include "SkillComponent.h"
 
 APController::APController()
@@ -322,4 +323,46 @@ void APController::UpdateHUD_SkillCooldown_2(bool bIsOnCooldown)
             HUDWidgetInstance->ProcessEvent(HideCoolTimeText, nullptr);
         }
     }
+}
+
+void APController::ShowUpgradeChoice()
+{
+    TriggerUICustomEvent(FName("ShowUpgradeChoice"));
+
+    bShowMouseCursor = true;
+
+    FInputModeGameAndUI InputMode;
+    SetInputMode(InputMode);
+
+    SetPause(true);
+}
+
+void APController::SelectHealthUpgrade()
+{
+    if (APlayerCharacter* PlayerCharacter = Cast<APlayerCharacter>(GetPawn()))
+    {
+        PlayerCharacter->UpgradeMaxHealth(UpgradeAmount);
+    }
+
+    TriggerUICustomEvent(FName("HideUpgradeChoice"));
+
+    bShowMouseCursor = false;
+    SetInputMode(FInputModeGameOnly());
+
+    SetPause(false);
+}
+
+void APController::SelectAttackUpgrade()
+{
+    if (APlayerCharacter* PlayerCharacter = Cast<APlayerCharacter>(GetPawn()))
+    {
+        PlayerCharacter->UpgradeAttack(UpgradeAmount);
+    }
+
+    TriggerUICustomEvent(FName("HideUpgradeChoice"));
+
+    bShowMouseCursor = false;
+    SetInputMode(FInputModeGameOnly());
+
+    SetPause(false);
 }

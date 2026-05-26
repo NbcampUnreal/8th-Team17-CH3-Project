@@ -1,7 +1,6 @@
 ﻿#include "WeaponBase.h"
 #include "Weapon/BazookaProjectile.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
-#include "TemaProject03/Player/PlayerCharacter.h"
 #include "TemaProject03/Player/PController.h"
 
 AWeaponBase::AWeaponBase()
@@ -74,6 +73,20 @@ void AWeaponBase::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("WeaponTable is NULL"));
     }
+}
+
+FWeaponData AWeaponBase::GetWeaponData() const
+{
+    if (WeaponTable)
+    {
+        if (FWeaponData* Data =
+            WeaponTable->FindRow<FWeaponData>(WeaponRowName, ""))
+        {
+            return *Data;
+        }
+    }
+
+    return FWeaponData();
 }
 
 UMeshComponent* AWeaponBase::GetActiveWeaponMesh() const
@@ -333,6 +346,19 @@ void AWeaponBase::FinishReload()
     UE_LOG(LogTemp, Warning, TEXT("Reload Complete"));
 }
 
+void AWeaponBase::InitWeapon(APlayerCharacter* InOwner)
+{
+    OwnerCharacter = InOwner;
+    SetOwner(InOwner);
+
+    bCanFire = true;
+    bIsReloading = false;
+
+    GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Init OK"));
+}
+
 int32 AWeaponBase::GetMaxAmmo() const
 {
     return MaxAmmo;
@@ -424,7 +450,84 @@ void AWeaponBase::StopFire()
 
 void AWeaponBase::FireShotgun()
 {
-    Fire();
+    if (bIsReloading) return;
+
+    if (CurrentAmmo <= 0)
+    {
+        Reload();
+        return;
+    }
+
+    if (!bCanFire) return;
+
+    bCanFire = false;
+    CurrentAmmo--;
+
+    if (SkeletalMesh && FireWeaponAnimation) SkeletalMesh->PlayAnimation(FireWeaponAnimation, false);
+
+    if (APlayerCharacter* Player = Cast<APlayerCharacter>(GetOwner()))
+    {
+        Player->PlayArmsMontage(ArmsFireMontage);
+        Player->ApplyWeaponRecoil(WeaponData.RecoilPitch, WeaponData.RecoilYaw);
+    }
+
+    if (FireSound) UGameplayStatics::PlaySoundAtLocation(GetWorld(), FireSound, GetActorLocation());
+
+    if (FireEffect) UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect, GetMuzzleLocation(), GetMuzzleRotation());
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+        PlayerController->UpdateHUD_Ammo();
+
+    APawn* OwnerPawn = Cast<APawn>(GetOwner());
+    if (!OwnerPawn) return;
+
+    APlayerController* PC = Cast<APlayerController>(OwnerPawn->GetController());
+    if (!PC) return;
+
+    FVector CameraLocation;
+    FRotator CameraRotation;
+
+    PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
+
+    FVector Start = CameraLocation;
+
+    for (int32 i = 0; i < 8; i++)
+    {
+        float RandomYaw = FMath::RandRange(-6.f, 6.f);
+        float RandomPitch = FMath::RandRange(-6.f, 6.f);
+
+        FRotator SpreadRotation = CameraRotation;
+        SpreadRotation.Yaw += RandomYaw;
+        SpreadRotation.Pitch += RandomPitch;
+
+        FVector End = Start + (SpreadRotation.Vector() * 10000.f);
+
+        FHitResult Hit;
+
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this);
+        Params.AddIgnoredActor(OwnerPawn);
+
+        bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
+
+        DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.f);
+
+        if (bHit)
+        {
+            AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(Hit.GetActor());
+
+            if (Enemy)
+            {
+                float Damage = WeaponData.Damage;
+
+                Enemy->ApplyDamage(Damage);
+
+                UE_LOG(LogTemp, Warning, TEXT("Shotgun Hit"));
+            }
+        }
+    }
+
+    GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
 }
 
 void AWeaponBase::FireBow()

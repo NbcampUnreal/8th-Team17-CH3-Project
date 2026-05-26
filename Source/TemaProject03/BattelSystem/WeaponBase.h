@@ -11,6 +11,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "TemaProject03/Player/PlayerCharacter.h"
 #include "Animation/AnimSequence.h"
 #include "Animation/AnimMontage.h"
 #include "Sound/SoundBase.h"
@@ -41,6 +42,12 @@ public:
 
     // 실제 데이터
     FWeaponData WeaponData;
+
+    UFUNCTION(BlueprintCallable)
+    FWeaponData GetWeaponData() const;
+
+    UPROPERTY()
+    APlayerCharacter* OwnerCharacter;
 
     // 무기 타입 - 팔 ABP에서 Idle 자세 선택용
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|Animation")
@@ -128,6 +135,8 @@ public:
         return GetWorld()->GetTimerManager().GetTimerRemaining(
             ReloadTimerHandle);
     }
+    UFUNCTION()
+    void InitWeapon(APlayerCharacter* InOwner);
 
     int32 GetCurrentAmmo() const;
     int32 GetMaxAmmo() const;

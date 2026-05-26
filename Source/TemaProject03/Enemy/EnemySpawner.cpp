@@ -3,14 +3,18 @@
 #include "EnemySpawner.h"
 #include "EnemyCharacter.h"
 #include "TemaProject03/Gimmick/Portal.h"
+#include "TemaProject03/Gimmick/RoomManager.h"
+
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
-#include "TemaProject03/Gimmick/RoomManager.h"
+
+int32 AEnemySpawner::GlobalKillCount = 0;
+int32 AEnemySpawner::GlobalBossKillCount = 0;
+int32 AEnemySpawner::GlobalStatLevel = 0;
 
 AEnemySpawner::AEnemySpawner()
 {
-    // Tick 사용 안 함
     PrimaryActorTick.bCanEverTick = false;
 }
 
@@ -18,29 +22,20 @@ void AEnemySpawner::BeginPlay()
 {
     Super::BeginPlay();
 
-    // =========================
-    // Portal Init
-    // =========================
-
-    // 게임 시작 시 포탈 비활성화
+    // 포탈 시작 비활성화
     AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
     if (APortal* Portal = Cast<APortal>(PortalActor))
     {
         Portal->SetPortalActive(false);
     }
 
-    // =========================
-    // Runtime Data Init
-    // =========================
-
+    // 런타임 초기화
     CurrentAliveEnemies = 0;
-    KillCount = 0;
 
-    // =========================
-    // Spawn Timer Start
-    // =========================
+    // 생존 시간 시작 기록
+    GameStartTime = GetWorld()->GetTimeSeconds();
 
-    // 일정 시간마다 현재 몬스터 수를 확인해서 부족하면 스폰
+    // 스폰 타이머 시작
     GetWorldTimerManager().SetTimer(
         SpawnTimerHandle,
         this,
@@ -49,19 +44,11 @@ void AEnemySpawner::BeginPlay()
         true
     );
 
-    // 시작하자마자 한 번 채우기
     MaintainEnemyCount();
 }
 
 void AEnemySpawner::MaintainEnemyCount()
 {
-    // 목표 처치 수를 달성했으면 더 이상 스폰하지 않음
-    if (KillCount >= TargetKillCount)
-    {
-        return;
-    }
-
-    // 현재 살아있는 몬스터가 최대 유지 수보다 적으면 1마리씩 보충
     if (CurrentAliveEnemies < MaxAliveEnemies)
     {
         SpawnEnemy();
@@ -70,10 +57,6 @@ void AEnemySpawner::MaintainEnemyCount()
 
 void AEnemySpawner::SpawnEnemy()
 {
-    // =========================
-    // Validation Check
-    // =========================
-
     if (!EnemyClass)
     {
         UE_LOG(LogTemp, Error, TEXT("EnemyClass is NULL"));
@@ -86,171 +69,270 @@ void AEnemySpawner::SpawnEnemy()
         return;
     }
 
-    // =========================
-    // Random Spawn Point
-    // =========================
-
-    const int32 RandomIndex = FMath::RandRange(0, SpawnPoints.Num() - 1);
-    AActor* SelectedPoint = SpawnPoints[RandomIndex];
+    AActor* SelectedPoint = SpawnPoints[FMath::RandRange(0, SpawnPoints.Num() - 1)];
 
     if (!SelectedPoint)
     {
         return;
     }
 
-    // =========================
-    // Spawn Parameter
-    // =========================
+    FVector RandomOffset = FMath::VRand() * SpawnRadius;
+    RandomOffset.Z = 0.0f;
+
+    FVector SpawnLocation = SelectedPoint->GetActorLocation() + RandomOffset;
+    FRotator SpawnRotation = SelectedPoint->GetActorRotation();
 
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride =
         ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-    // =========================
-    // Spawn Location
-    // =========================
-
-    FVector RandomOffset = FMath::VRand() * SpawnRadius;
-    RandomOffset.Z = 0.0f;
-
-    const FVector SpawnLocation =
-        SelectedPoint->GetActorLocation() + RandomOffset;
-
-    const FRotator SpawnRotation =
-        SelectedPoint->GetActorRotation();
-
-    // =========================
-    // Spawn Enemy
-    // =========================
-
-    AEnemyCharacter* SpawnedEnemy =
-        GetWorld()->SpawnActor<AEnemyCharacter>(
-            EnemyClass,
-            SpawnLocation,
-            SpawnRotation,
-            SpawnParams
-        );
+    AEnemyCharacter* SpawnedEnemy = GetWorld()->SpawnActor<AEnemyCharacter>(
+        EnemyClass,
+        SpawnLocation,
+        SpawnRotation,
+        SpawnParams
+    );
 
     if (!SpawnedEnemy)
     {
         return;
     }
 
-    // =========================
-    // Enemy Data Apply
-    // =========================
+    // 이 몬스터를 소환한 스포너 저장
+    SpawnedEnemy->SetOwnerSpawner(this);
 
+    // 데이터 적용
     SpawnedEnemy->EnemyDataTable = EnemyDataTable;
-    SpawnedEnemy->EnemyDataRowName = EnemyDataRowName;
+    SpawnedEnemy->EnemyDataRowName = GetEnemyRowNameByStatLevel(bSpawnJumpEnemy);
     SpawnedEnemy->ApplyEnemyData();
 
-    // AI Controller 생성
     SpawnedEnemy->SpawnDefaultController();
 
-    // 현재 살아있는 몬스터 수 증가
     CurrentAliveEnemies++;
 
     UE_LOG(LogTemp, Warning,
-        TEXT("Enemy Spawned / Alive: %d / Kill: %d / Target: %d"),
+        TEXT("Enemy Spawned / Alive: %d / Kill: %d / StatLevel: %d"),
         CurrentAliveEnemies,
-        KillCount,
-        TargetKillCount
+        GlobalKillCount,
+        GlobalStatLevel
     );
 }
 
-void AEnemySpawner::OnEnemyKilled()
+void AEnemySpawner::SpawnBoss()
 {
-    // =========================
-    // Count Update
-    // =========================
-
-    CurrentAliveEnemies = FMath::Max(0, CurrentAliveEnemies - 1);
-    KillCount++;
-
-    if (GEngine)
+    if (!BossClass)
     {
-        GEngine->AddOnScreenDebugMessage(
-            999,    // 같은 ID라서 한 줄 갱신
-            2.0f,
-            FColor::Yellow,
-            FString::Printf(
-                TEXT("Kill Count : %d / %d   Alive : %d"),
-                KillCount,
-                TargetKillCount,
-                CurrentAliveEnemies
-            )
-        );
+        UE_LOG(LogTemp, Error, TEXT("BossClass is NULL"));
+        return;
     }
 
-    // =========================
-    // Upgrade Milestone
-    // =========================
-
-    if (KillCount == 30 || KillCount == 50 || KillCount == 70)
+    if (SpawnPoints.Num() == 0)
     {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Upgrade Choice Trigger / KillCount: %d"),
-            KillCount
-        );
-
-        // TODO:
-        // 여기서 업그레이드 UI 담당 쪽 함수나 이벤트 호출
-        // 예: GameMode, PlayerController, UpgradeManager 등
+        UE_LOG(LogTemp, Error, TEXT("SpawnPoints is Empty"));
+        return;
     }
 
-    // =========================
-    // Target Kill Count Check
-    // =========================
+    AActor* SelectedPoint = SpawnPoints[FMath::RandRange(0, SpawnPoints.Num() - 1)];
 
-    if (KillCount >= TargetKillCount)
+    if (!SelectedPoint)
     {
-        UE_LOG(LogTemp, Error,
-            TEXT("Target Kill Count Reached! Opening Portal...")
-        );
-
-        // 더 이상 몬스터 스폰하지 않도록 타이머 정지
-        GetWorldTimerManager().ClearTimer(SpawnTimerHandle);
-
-        // 남아있는 몬스터 제거
-        ClearAliveEnemies();
-
-        // 포탈 오픈
-        AActor* RoomManagerActor =
-            UGameplayStatics::GetActorOfClass(GetWorld(), ARoomManager::StaticClass());
-
-        if (ARoomManager* RoomManager = Cast<ARoomManager>(RoomManagerActor))
-        {
-            RoomManager->OpenLinkedPortals();
-        }
+        return;
     }
+
+    FVector SpawnLocation = SelectedPoint->GetActorLocation();
+    FRotator SpawnRotation = SelectedPoint->GetActorRotation();
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride =
+        ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    AEnemyCharacter* SpawnedBoss = GetWorld()->SpawnActor<AEnemyCharacter>(
+        BossClass,
+        SpawnLocation,
+        SpawnRotation,
+        SpawnParams
+    );
+
+    if (!SpawnedBoss)
+    {
+        return;
+    }
+
+    SpawnedBoss->EnemyDataTable = EnemyDataTable;
+    SpawnedBoss->EnemyDataRowName = BossDataRowName;
+    SpawnedBoss->ApplyEnemyData();
+
+    SpawnedBoss->SpawnDefaultController();
+
+    UE_LOG(LogTemp, Error,
+        TEXT("Boss Spawned! KillCount: %d"),
+        GlobalKillCount
+    );
 }
 
-void AEnemySpawner::ClearAliveEnemies()
+FName AEnemySpawner::GetEnemyRowNameByStatLevel(bool bIsJumpEnemy) const
 {
-    // =========================
-    // Find All Enemy
-    // =========================
+    const FString Prefix = bIsJumpEnemy ? TEXT("Enemy_B") : TEXT("Enemy_A");
 
+    const int32 Level = FMath::Clamp(GlobalStatLevel + 1, 1, 4);
+
+    return FName(*FString::Printf(TEXT("%s_Lv%d"), *Prefix, Level));
+}
+
+void AEnemySpawner::ApplyCurrentLevelToAliveEnemies()
+{
     TArray<AActor*> FoundEnemies;
+
     UGameplayStatics::GetAllActorsOfClass(
         GetWorld(),
         AEnemyCharacter::StaticClass(),
         FoundEnemies
     );
 
-    // =========================
-    // Destroy All Enemy
-    // =========================
+    const FName NewRowName = GetEnemyRowNameByStatLevel(bSpawnJumpEnemy);
 
     for (AActor* EnemyActor : FoundEnemies)
     {
-        if (EnemyActor)
+        AEnemyCharacter* Enemy = Cast<AEnemyCharacter>(EnemyActor);
+
+        if (!Enemy)
         {
-            EnemyActor->Destroy();
+            continue;
+        }
+
+        Enemy->EnemyDataTable = EnemyDataTable;
+        Enemy->EnemyDataRowName = NewRowName;
+        Enemy->ApplyEnemyData();
+    }
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("All Alive Enemies Updated To Row: %s"),
+        *NewRowName.ToString()
+    );
+}
+
+void AEnemySpawner::CheckUpgradeReward()
+{
+    bool bShouldShowUpgrade = UpgradeKillGoals.Contains(GlobalKillCount);
+
+    if (!bShouldShowUpgrade && UpgradeKillGoals.Num() > 0 && RepeatUpgradeKillInterval > 0)
+    {
+        const int32 LastUpgradeGoal = UpgradeKillGoals.Last();
+
+        if (GlobalKillCount > LastUpgradeGoal &&
+            (GlobalKillCount - LastUpgradeGoal) % RepeatUpgradeKillInterval == 0)
+        {
+            bShouldShowUpgrade = true;
         }
     }
 
-    CurrentAliveEnemies = 0;
+    if (!bShouldShowUpgrade)
+    {
+        return;
+    }
 
-    UE_LOG(LogTemp, Warning, TEXT("All remaining enemies cleared."));
+    UE_LOG(LogTemp, Warning,
+        TEXT("[Upgrade] Choice Trigger / KillCount: %d / HP +10 or Attack +10"),
+        GlobalKillCount
+    );
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            3.0f,
+            FColor::Cyan,
+            FString::Printf(
+                TEXT("Upgrade Choice! Kill: %d / Choose HP +10 or Attack +10"),
+                GlobalKillCount
+            )
+        );
+    }
+
+    // UI 담당자가 업그레이드 선택창을 완성하면 아래 호출을 다시 사용하면 됨.
+    // if (APController* PlayerController = Cast<APController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+    // {
+    //     PlayerController->ShowUpgradeChoice();
+    // }
+}
+
+void AEnemySpawner::OnEnemyKilled()
+{
+    CurrentAliveEnemies = FMath::Max(0, CurrentAliveEnemies - 1);
+    GlobalKillCount++;
+
+    // 20, 40, 60, 100, 200, 300... 킬 달성 시 업그레이드 로그 출력
+    CheckUpgradeReward();
+
+    // 50킬마다 전체 몬스터 강화
+    if (StatUpgradeInterval > 0 && GlobalKillCount % StatUpgradeInterval == 0)
+    {
+        GlobalStatLevel++;
+
+        // 기존에 몬스터가 존재하면 그 기존 몬스터를 강화한 상태로 변경
+        // 현재는 뺀 상태 넣으면 데이터 테이블 몬스터가 꼬일 수 있음
+        // ApplyCurrentLevelToAliveEnemies();
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("Enemy Stat Up! Global Level: %d"),
+            GlobalStatLevel
+        );
+    }
+
+    // 150킬마다 보스 등장
+    if (BossSpawnInterval > 0 && GlobalKillCount % BossSpawnInterval == 0)
+    {
+        SpawnBoss();
+    }
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            999,
+            2.0f,
+            FColor::Yellow,
+            FString::Printf(
+                TEXT("Kill: %d | Boss: %d | Alive: %d | StatLv: %d"),
+                GlobalKillCount,
+                GlobalBossKillCount,
+                CurrentAliveEnemies,
+                GlobalStatLevel
+            )
+        );
+    }
+}
+
+void AEnemySpawner::OnBossKilled()
+{
+    GlobalBossKillCount++;
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("Boss Killed! Total Boss Kill: %d"),
+        GlobalBossKillCount
+    );
+}
+
+int32 AEnemySpawner::GetKillCount() const
+{
+    return GlobalKillCount;
+}
+
+int32 AEnemySpawner::GetBossKillCount() const
+{
+    return GlobalBossKillCount;
+}
+
+float AEnemySpawner::GetSurvivalTime() const
+{
+    if (!GetWorld())
+    {
+        return 0.0f;
+    }
+
+    return GetWorld()->GetTimeSeconds() - GameStartTime;
+}
+
+int32 AEnemySpawner::GetCurrentStatLevel() const
+{
+    return GlobalStatLevel;
 }

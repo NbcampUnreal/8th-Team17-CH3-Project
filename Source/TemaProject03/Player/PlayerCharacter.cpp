@@ -9,6 +9,12 @@
 #include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 
+#include "Camera/CameraShakeBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "Particles/ParticleSystem.h"
+
+#include "TemaProject03/BattelSystem/WeaponBox.h"
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "WeaponPickup.h"
@@ -101,9 +107,17 @@ void APlayerCharacter::BeginPlay()
     }
 
     // 무기 스폰 및 부착 로직 추가
-    if (WeaponClass)
+    if (PistolClass)
     {
-        EquipWeapon(WeaponClass);
+        PistolWeapon =
+            GetWorld()->SpawnActor<AWeaponBase>(PistolClass);
+
+        if (PistolWeapon)
+        {
+            PistolWeapon->SetOwner(this);
+
+            EquipWeapon(PistolWeapon);
+        }
     }
 
     // 게임 시작 시 Ammo / SkillCooldown 업데이트
@@ -178,6 +192,56 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         {
             EnhancedInput->BindAction(SkillAction, ETriggerEvent::Started, this, &APlayerCharacter::UseSkillInput);
         }
+
+        if (SelectWeapon1Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon1Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon1
+            );
+        }
+
+        if (SelectWeapon2Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon2Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon2
+            );
+        }
+
+        if (SelectWeapon3Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon3Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon3
+            );
+        }
+
+        if (SetSlot1Action)
+        {
+            EnhancedInput->BindAction(
+                SetSlot1Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::PutWeaponInSlot1
+            );
+        }
+
+        if (SetSlot2Action)
+        {
+            EnhancedInput->BindAction(
+                SetSlot2Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::PutWeaponInSlot2
+            );
+        }
     }
 }
 
@@ -247,27 +311,27 @@ float APlayerCharacter::GetRemainingCooldown() const
 
 void APlayerCharacter::EquipWeapon()
 {
-    EquipWeapon(WeaponClass);
+    if (WeaponClass)
+    {
+        AWeaponBase* NewWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+
+        EquipWeapon(NewWeapon);
+    }
 }
 
 void APlayerCharacter::EquipRifle()
 {
-    EquipWeapon(RifleClass);
+    EquipWeapon(Slot1Weapon);
 }
 
 void APlayerCharacter::EquipShotgun()
 {
-    EquipWeapon(ShotgunClass);
+    EquipWeapon(Slot2Weapon);
 }
 
 void APlayerCharacter::EquipPistol()
 {
-    EquipWeapon(PistolClass);
-}
-
-void APlayerCharacter::ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
-{
-    EquipWeapon(NewWeaponClass);
+    EquipWeapon(PistolWeapon);
 }
 
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용
@@ -381,58 +445,57 @@ void APlayerCharacter::SetNearbyWeaponPickup(AWeaponPickup* NewPickup)
 
 void APlayerCharacter::Interact()
 {
-    if (!NearbyWeaponPickup)
+    UE_LOG(LogTemp, Warning, TEXT("INTERACT KEY PRESSED"));
+
+    if (NearbyWeaponBox)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
-        return;
+        NearbyWeaponBox->OpenWeaponBox(this);
     }
 
-    TSubclassOf<AWeaponBase> NewWeaponClass = NearbyWeaponPickup->GetWeaponClass();
-    if (!NewWeaponClass)
-    {
-        return;
-    }
+    //if (!NearbyWeaponPickup)
+    //{
+    //    UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
+    //    return;
+    //}
 
-    AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
-    NearbyWeaponPickup = nullptr;
+    //AWeaponBase* WeaponInstance = NearbyWeaponPickup->GetWeaponInstance();
 
-    EquipWeapon(NewWeaponClass);
+    //if (!WeaponInstance)
+    //{
+    //    return;
+    //}
 
-    PickupToDestroy->Destroy();
+    //AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
+    //NearbyWeaponPickup = nullptr;
+
+    //EquipWeapon(WeaponInstance);
+
+    //PickupToDestroy->Destroy();
 }
 
-void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
+void APlayerCharacter::EquipWeapon(AWeaponBase* NewWeapon)
 {
-    if (!NewWeaponClass || !GetWorld())
+    if (!NewWeapon || !GetWorld())
     {
         return;
     }
 
-    DropCurrentWeapon();
-
-    WeaponClass = NewWeaponClass;
-
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = this;
-    SpawnParams.Instigator = this;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(NewWeaponClass, SpawnParams);
-    if (!CurrentWeapon)
+    if (CurrentWeapon)
     {
-        CurrentWeaponType = EWeaponType::None;
-        return;
+        CurrentWeapon->SetActorHiddenInGame(true);
+        CurrentWeapon->StopFire();
     }
+
+    CurrentWeapon = NewWeapon;
 
     CurrentWeapon->SetOwner(this);
 
-    // 현재 무기 타입을 ABP에서 읽을 수 있게 저장
+    CurrentWeapon->SetActorHiddenInGame(false);
+
     CurrentWeaponType = CurrentWeapon->WeaponType;
 
     USkeletalMeshComponent* AttachMesh = nullptr;
 
-    // 1인칭 팔 메시가 실제로 들어있으면 팔에 붙이고,
-    // 없으면 캐릭터 본체 Mesh의 손 소켓에 붙인다.
     if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
     {
         AttachMesh = FirstPersonArmsMesh;
@@ -442,26 +505,18 @@ void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
         AttachMesh = GetMesh();
     }
 
-    if (AttachMesh)
-    {
-        CurrentWeapon->AttachToComponent(
-            AttachMesh,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-            WeaponAttachSocketName
-        );
-    }
-    else
-    {
-        CurrentWeapon->AttachToComponent(
-            CameraComp,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale
-        );
-    }
+    CurrentWeapon->AttachToComponent(
+        AttachMesh,
+        FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+        WeaponAttachSocketName
+    );
 
-    // WeaponData에 저장된 위치/회전/크기 적용
     CurrentWeapon->ApplyWeaponAttachTransform();
 
-    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    CurrentWeapon->InitWeapon(this);
+
+    if (APController* PlayerController =
+        Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
         PlayerController->UpdateHUD_Ammo();
     }
@@ -473,6 +528,8 @@ void APlayerCharacter::DropCurrentWeapon()
     {
         return;
     }
+
+    SavedAmmoMap.Add(CurrentWeapon->GetClass(), CurrentWeapon->CurrentAmmo);
 
     if (WeaponPickupClass)
     {
@@ -502,6 +559,98 @@ void APlayerCharacter::DropCurrentWeapon()
 
     // 현재 무기가 없으므로 ABP에는 None 상태 전달
     CurrentWeaponType = EWeaponType::None;
+}
+
+void APlayerCharacter::SetNearbyWeaponBox(AWeaponBox* NewBox)
+{
+    NearbyWeaponBox = NewBox;
+}
+
+void APlayerCharacter::SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex)
+{
+    if (!NewWeapon)
+    {
+        return;
+    }
+
+    switch (SlotIndex)
+    {
+    case 1:
+        Slot1Weapon = NewWeapon;
+        break;
+
+    case 2:
+        Slot2Weapon = NewWeapon;
+        break;
+    }
+
+    EquipWeapon(NewWeapon);
+}
+
+void APlayerCharacter::SelectWeapon(AWeaponBase* NewWeapon)
+{
+    PendingSelectedWeapon = NewWeapon;
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Selected"));
+}
+
+void APlayerCharacter::SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon)
+{
+    SelectedWeapon = NewWeapon;
+}
+
+void APlayerCharacter::SelectRandomWeapon1()
+{
+    if (CurrentRandomWeapons.Num() > 0)
+    {
+        SelectWeapon(CurrentRandomWeapons[0]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 1"));
+    }
+}
+
+void APlayerCharacter::SelectRandomWeapon2()
+{
+    if (CurrentRandomWeapons.Num() > 1)
+    {
+        SelectWeapon(CurrentRandomWeapons[1]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 2"));
+    }
+}
+
+void APlayerCharacter::SelectRandomWeapon3()
+{
+    if (CurrentRandomWeapons.Num() > 2)
+    {
+        SelectWeapon(CurrentRandomWeapons[2]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 3"));
+    }
+}
+
+void APlayerCharacter::PutWeaponInSlot1()
+{
+    if (!PendingSelectedWeapon)
+    {
+        return;
+    }
+
+    SetWeaponToSlot(PendingSelectedWeapon, 1);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 1"));
+}
+
+void APlayerCharacter::PutWeaponInSlot2()
+{
+    if (!PendingSelectedWeapon)
+    {
+        return;
+    }
+
+    SetWeaponToSlot(PendingSelectedWeapon, 2);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 2"));
 }
 
 void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
@@ -677,21 +826,179 @@ void APlayerCharacter::UnequipRPG()
 
 void APlayerCharacter::ApplyDamage(float DamageAmount)
 {
+    if (CurrentHealth <= 0.0f)
+    {
+        return;
+    }
+
     CurrentHealth -= DamageAmount;
+    CurrentHealth = FMath::Clamp(CurrentHealth, 0.0f, MaxHealth);
+
+    if (HitSound)
+    {
+        UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+    }
+
+    if (HitEffect)
+    {
+        const FVector EffectLocation =
+            GetActorLocation()
+            + GetActorForwardVector() * HitEffectForwardOffset
+            + FVector(0.0f, 0.0f, HitEffectZOffset);
+
+        const FRotator EffectRotation = GetActorRotation();
+
+        UGameplayStatics::SpawnEmitterAtLocation(
+            GetWorld(),
+            HitEffect,
+            EffectLocation,
+            EffectRotation
+        );
+    }
+
+    if (APController* PlayerController = Cast<APController>(GetController()))
+    {
+        PlayerController->UpdateHUD_HP();
+
+        if (HitCameraShake)
+        {
+            PlayerController->ClientStartCameraShake(HitCameraShake);
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
+
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1,
+            2.f,
+            FColor::Red,
+            FString::Printf(TEXT("HP: %f"), CurrentHealth)
+        );
+    }
+
+    if (CurrentHealth <= 0.0f)
+    {
+        Die();
+    }
+}
+
+void APlayerCharacter::RestoreHealthByPercent(float Percent)
+{
+    if (CurrentHealth <= 0.0f || MaxHealth <= 0.0f)
+    {
+        return;
+    }
+
+    const float HealAmount = MaxHealth * Percent;
+    CurrentHealth = FMath::Clamp(CurrentHealth + HealAmount, 0.0f, MaxHealth);
 
     if (APController* PlayerController = Cast<APController>(GetController()))
     {
         PlayerController->UpdateHUD_HP();
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
+    UE_LOG(LogTemp, Warning, TEXT("[Item] Heal %.1f%% / HP: %.1f / %.1f"), Percent * 100.0f, CurrentHealth, MaxHealth);
+}
 
-    GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("HP: %f"), CurrentHealth));
+void APlayerCharacter::UpgradeMaxHealth(float Amount)
+{
+    MaxHealth += Amount;
+    CurrentHealth += Amount;
+    CurrentHealth = FMath::Clamp(CurrentHealth, 0.0f, MaxHealth);
 
-    if (CurrentHealth <= 0)
+    if (APController* PlayerController = Cast<APController>(GetController()))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
+        PlayerController->UpdateHUD_HP();
+    }
 
-        Destroy();
+    UE_LOG(LogTemp, Warning, TEXT("[Upgrade] MaxHealth increased by %.1f / MaxHealth: %.1f"), Amount, MaxHealth);
+}
+
+void APlayerCharacter::UpgradeAttack(float Amount)
+{
+    CharacterAttack += Amount;
+
+    UE_LOG(LogTemp, Warning, TEXT("[Upgrade] CharacterAttack increased by %.1f / Attack: %.1f"), Amount, CharacterAttack);
+}
+
+void APlayerCharacter::Die()
+{
+    if (bIsDead)
+    {
+        return;
+    }
+
+    bIsDead = true;
+
+    UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
+
+    StopFire();
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetActorHiddenInGame(true);
+    }
+
+    if (EquippedRPGActor)
+    {
+        EquippedRPGActor->SetActorHiddenInGame(true);
+    }
+
+    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        DisableInput(PlayerController);
+
+        // 죽을 때 1인칭 카메라를 3인칭 위치로 뒤로 빼서 사망 애니메이션이 보이게
+        if (SpringArmComp)
+        {
+            SpringArmComp->TargetArmLength = 350.0f;
+            SpringArmComp->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
+            SpringArmComp->bUsePawnControlRotation = false;
+            SpringArmComp->bDoCollisionTest = false;
+        }
+
+        if (CameraComp)
+        {
+            CameraComp->bUsePawnControlRotation = false;
+            CameraComp->SetRelativeRotation(FRotator(-15.0f, 0.0f, 0.0f));
+        }
+    }
+
+    if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+    {
+        Movement->StopMovementImmediately();
+        Movement->DisableMovement();
+    }
+
+    if (USkeletalMeshComponent* DeathMesh = GetMesh())
+    {
+        DeathMesh->SetHiddenInGame(false);
+        DeathMesh->SetOwnerNoSee(false);
+    }
+
+    // 죽는 애니메이션을 잠깐 보여준 뒤 화면을 검게 페이드아웃
+    GetWorldTimerManager().SetTimer(
+        DeathFadeTimerHandle,
+        this,
+        &APlayerCharacter::StartDeathFade,
+        DeathFadeDelay,
+        false
+    );
+}
+
+void APlayerCharacter::StartDeathFade()
+{
+    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        PlayerController->ClientSetCameraFade(
+            true,
+            FColor::Black,
+            FVector2D(0.0f, 1.0f),
+            DeathFadeDuration,
+            false,
+            true
+        );
     }
 }

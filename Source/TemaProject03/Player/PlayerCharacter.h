@@ -12,6 +12,7 @@
 #include "PlayerCharacter.generated.h"
 
 class AWeaponPickup;
+class AWeaponBox;
 
 UCLASS()
 class TEMAPROJECT03_API APlayerCharacter : public ACharacter
@@ -24,11 +25,59 @@ public:
 public:
     void ApplyDamage(float DamageAmount);
 
+    UFUNCTION(BlueprintCallable, Category = "Stat")
+    void RestoreHealthByPercent(float Percent);
+
+    // 업그레이드로 증가할 HP/공격력 기본 증가량
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
+    float UpgradeAmount = 10.0f;
+
+    // 최대 체력 업그레이드 적용
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void UpgradeMaxHealth(float Amount);
+
+    // 공격력 업그레이드 적용
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void UpgradeAttack(float Amount);
+
     // RPG 탄두 스폰 위치를 스킬에서 가져가기 위한 함수
     bool GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) const;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
     float CharacterAttack = 50.f;
+
+    UPROPERTY(BlueprintReadWrite)
+    TArray<AWeaponBase*> CurrentRandomWeapons;
+
+    UPROPERTY()
+    AWeaponBase* Slot1Weapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* Slot2Weapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* PistolWeapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* PendingSelectedWeapon = nullptr;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon1Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon2Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon3Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SetSlot1Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SetSlot2Action;
+
+    UPROPERTY(BlueprintReadWrite)
+    TSubclassOf<AWeaponBase> SelectedWeapon;
 
     // 무기 클래스 (블루프린트 넣을 용도)
     UPROPERTY(EditAnywhere, Category = "Weapon")
@@ -58,6 +107,13 @@ public:
 
     UPROPERTY(EditAnywhere, Category = "Input")
     UInputAction* PistolAction;
+
+    // 무기 교체 시 탄약을 기억하기 위한 저장소
+    UPROPERTY()
+    TMap<TSubclassOf<AWeaponBase>, int32> SavedAmmoMap;
+
+    UPROPERTY()
+    AWeaponBox* NearbyWeaponBox;
 
     // 손에 무기를 붙일 소켓 이름
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -132,16 +188,53 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon|RPG")
     FVector RPGAttachScale = FVector(1.0f, 1.0f, 1.0f);
 
-    //효과
+    // 효과
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TArray<TSubclassOf<UWeaponEffectBase>> EffectClasses;
 
     UPROPERTY()
     UWeaponEffectBase* CurrentEffect = nullptr;
 
+    // 플레이어가 피해를 입었을 때 재생할 피격 사운드
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    class USoundBase* HitSound;
+
+    // 플레이어가 피해를 입었을 때 생성할 피격 파티클 이펙트
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    class UParticleSystem* HitEffect;
+
+    // 플레이어가 피해를 입었을 때 재생할 카메라 흔들림 클래스
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    TSubclassOf<class UCameraShakeBase> HitCameraShake;
+
+    // 피격 이펙트를 캐릭터 기준 앞쪽으로 얼마나 띄워서 생성할지 설정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    float HitEffectForwardOffset = 30.0f;
+
+    // 피격 이펙트를 캐릭터 기준 위쪽으로 얼마나 올려서 생성할지 설정
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
+    float HitEffectZOffset = 40.0f;
+
+    // 플레이어 사망 시 한 번만 처리하기 위한 상태값
+    // ABP에서 이 값을 읽어서 Dead State로 전환한다.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Death")
+    bool bIsDead = false;
+
+    // 사망 후 페이드아웃이 시작되기까지 기다릴 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
+    float DeathFadeDelay = 1.2f;
+
+    // 사망 페이드아웃에 걸리는 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
+    float DeathFadeDuration = 3.0f;
+
+    void Die();
+    void StartDeathFade();
+
 private:
     AActor* EquippedRPGActor = nullptr;
     FTimerHandle RPGUnequipTimerHandle;
+    FTimerHandle DeathFadeTimerHandle;
 
     bool EquipRPG();
     void UnequipRPG();
@@ -184,8 +277,25 @@ public:
     void SetNearbyWeaponPickup(AWeaponPickup* NewPickup);
     void Interact();
     void EquipWeapon();
-    void EquipWeapon(TSubclassOf<class AWeaponBase> NewWeaponClass);
+    void EquipWeapon(AWeaponBase* Weapon);
     void DropCurrentWeapon();
+    void SetNearbyWeaponBox(AWeaponBox* NewBox);
+
+    UFUNCTION(BlueprintCallable)
+    void SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex);
+
+    UFUNCTION(BlueprintCallable)
+    void SelectWeapon(AWeaponBase* NewWeapon);
+
+    UFUNCTION(BlueprintCallable)
+    void SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon);
+
+    void SelectRandomWeapon1();
+    void SelectRandomWeapon2();
+    void SelectRandomWeapon3();
+
+    void PutWeaponInSlot1();
+    void PutWeaponInSlot2();
 
     void EquipRifle();
     void EquipShotgun();
@@ -207,11 +317,11 @@ public:
     UAnimMontage* ReloadMontage;
 
     bool bIsDashing = false;           // 대시 상태 체크
-    bool bIsDashOnCooldown = false; // 쿨타임 상태 체크
+    bool bIsDashOnCooldown = false;    // 쿨타임 상태 체크
 
     FVector DashDirection;            // 대시 방향
-    float OriginalMaxWalkSpeed;      // 원래 걷기 속도 저장
-    float OriginalMaxAcceleration;   // 원래 가속도 저장
+    float OriginalMaxWalkSpeed;       // 원래 걷기 속도 저장
+    float OriginalMaxAcceleration;    // 원래 가속도 저장
 
     FTimerHandle DashTimerHandle;         // 대시 종료용 타이머 핸들
     FTimerHandle DashCooldownTimerHandle; // 쿨타임 종료용 타이머 핸들
@@ -220,7 +330,7 @@ public:
     float MinViewPitch = -20.0f;     // 카메라 최소 각도
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-    float MaxViewPitch = 60.0f;     // 카메라 최대 각도
+    float MaxViewPitch = 60.0f;      // 카메라 최대 각도
 
     float GetCurrentHealth() const { return CurrentHealth; }
     float GetMaxHealth() const { return MaxHealth; }
