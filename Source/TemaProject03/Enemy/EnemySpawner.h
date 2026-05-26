@@ -110,6 +110,8 @@ protected:
     // 전체 몬스터 강화 단계
     static int32 GlobalStatLevel;
 
+    static bool bGlobalCounterInitialized;
+
     // 생존 시간 계산용 시작 시간
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner|Runtime")
     float GameStartTime = 0.0f;
@@ -164,6 +166,8 @@ public:
 
     // 보스 몬스터 사망 시 BossCharacter에서 호출 예정
     void OnBossKilled();
+
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
     // =========================
     // UI Getter Function

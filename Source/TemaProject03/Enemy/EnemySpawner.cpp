@@ -12,6 +12,7 @@
 int32 AEnemySpawner::GlobalKillCount = 0;
 int32 AEnemySpawner::GlobalBossKillCount = 0;
 int32 AEnemySpawner::GlobalStatLevel = 0;
+bool AEnemySpawner::bGlobalCounterInitialized = false;
 
 AEnemySpawner::AEnemySpawner()
 {
@@ -21,6 +22,17 @@ AEnemySpawner::AEnemySpawner()
 void AEnemySpawner::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (!bGlobalCounterInitialized)
+    {
+        GlobalKillCount = 0;
+        GlobalBossKillCount = 0;
+        GlobalStatLevel = 0;
+
+        bGlobalCounterInitialized = true;
+
+        UE_LOG(LogTemp, Warning, TEXT("Global Enemy Counters Reset"));
+    }
 
     // 포탈 시작 비활성화
     AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
@@ -310,6 +322,13 @@ void AEnemySpawner::OnBossKilled()
         TEXT("Boss Killed! Total Boss Kill: %d"),
         GlobalBossKillCount
     );
+}
+
+void AEnemySpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    Super::EndPlay(EndPlayReason);
+
+    bGlobalCounterInitialized = false;
 }
 
 int32 AEnemySpawner::GetKillCount() const
