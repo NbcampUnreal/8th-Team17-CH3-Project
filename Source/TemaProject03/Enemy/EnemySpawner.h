@@ -131,14 +131,6 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
     int32 RepeatUpgradeKillInterval = 100;
 
-    // 다음 업그레이드 목표 인덱스
-    // UpgradeKillGoals 배열에서 다음으로 확인할 위치
-    int32 NextUpgradeGoalIndex = 0;
-
-    // 반복 업그레이드의 다음 목표 킬 수
-    // 기본값 200이면 100 이후에는 200, 300, 400... 순서로 진행
-    int32 NextRepeatUpgradeKillGoal = 200;
-
     // =========================
     // Spawn Function
     // =========================
