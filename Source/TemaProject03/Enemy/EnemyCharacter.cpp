@@ -619,16 +619,6 @@ void AEnemyCharacter::OnHitEnd()
         return;
     }
 
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            -1,
-            2.f,
-            FColor::Green,
-            TEXT("OnHitEnd Called")
-        );
-    }
-
     SetEnemyState(EEnemyState::Chase);
 }
 
@@ -758,16 +748,6 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
     CurrentHealth -= DamageAmount;
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
-
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            -1,
-            2.f,
-            FColor::Red,
-            FString::Printf(TEXT("HP: %f"), CurrentHealth)
-        );
-    }
 
     if (CurrentHealth <= 0.0f)
     {

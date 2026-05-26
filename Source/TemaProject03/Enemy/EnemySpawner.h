@@ -117,10 +117,6 @@ protected:
 
     static bool bGlobalCounterInitialized;
 
-    // 생존 시간 계산용 시작 시간
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Spawner|Runtime")
-    float GameStartTime = 0.0f;
-
     // 몬스터 스폰 반복 체크용 타이머
     FTimerHandle SpawnTimerHandle;
 
@@ -185,10 +181,6 @@ public:
     // UI에서 현재 보스 처치 수 확인
     UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
     int32 GetBossKillCount() const;
-
-    // UI에서 생존 시간 확인
-    UFUNCTION(BlueprintCallable, Category = "Spawner|UI")
-    float GetSurvivalTime() const;
 
     // UI에서 현재 강화 단계 확인
     UFUNCTION(BlueprintCallable, Category = "Spawner|UI")

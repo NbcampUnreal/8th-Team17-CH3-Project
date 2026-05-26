@@ -45,9 +45,6 @@ void AEnemySpawner::BeginPlay()
     // 런타임 초기화
     CurrentAliveEnemies = 0;
 
-    // 생존 시간 시작 기록
-    GameStartTime = GetWorld()->GetTimeSeconds();
-
     // 스폰 타이머 시작
     GetWorldTimerManager().SetTimer(
         SpawnTimerHandle,
@@ -341,22 +338,6 @@ void AEnemySpawner::OnEnemyKilled()
     {
         TrySpawnBossFromBossSpawner();
     }
-
-    if (GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(
-            999,
-            2.0f,
-            FColor::Yellow,
-            FString::Printf(
-                TEXT("Kill: %d | Boss: %d | Alive: %d | StatLv: %d"),
-                GlobalKillCount,
-                GlobalBossKillCount,
-                CurrentAliveEnemies,
-                GlobalStatLevel
-            )
-        );
-    }
 }
 
 void AEnemySpawner::OnBossKilled()
@@ -389,16 +370,6 @@ int32 AEnemySpawner::GetKillCount() const
 int32 AEnemySpawner::GetBossKillCount() const
 {
     return GlobalBossKillCount;
-}
-
-float AEnemySpawner::GetSurvivalTime() const
-{
-    if (!GetWorld())
-    {
-        return 0.0f;
-    }
-
-    return GetWorld()->GetTimeSeconds() - GameStartTime;
 }
 
 int32 AEnemySpawner::GetCurrentStatLevel() const
