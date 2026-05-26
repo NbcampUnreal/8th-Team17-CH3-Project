@@ -1,7 +1,6 @@
 ﻿#include "WeaponBase.h"
 #include "Weapon/BazookaProjectile.h"
 #include "TemaProject03/Enemy/EnemyCharacter.h"
-#include "TemaProject03/Player/PlayerCharacter.h"
 #include "TemaProject03/Player/PController.h"
 
 AWeaponBase::AWeaponBase()
@@ -74,6 +73,20 @@ void AWeaponBase::BeginPlay()
     {
         UE_LOG(LogTemp, Error, TEXT("WeaponTable is NULL"));
     }
+}
+
+FWeaponData AWeaponBase::GetWeaponData() const
+{
+    if (WeaponTable)
+    {
+        if (FWeaponData* Data =
+            WeaponTable->FindRow<FWeaponData>(WeaponRowName, ""))
+        {
+            return *Data;
+        }
+    }
+
+    return FWeaponData();
 }
 
 UMeshComponent* AWeaponBase::GetActiveWeaponMesh() const
@@ -337,6 +350,19 @@ void AWeaponBase::FinishReload()
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Reload Complete"));
+}
+
+void AWeaponBase::InitWeapon(APlayerCharacter* InOwner)
+{
+    OwnerCharacter = InOwner;
+    SetOwner(InOwner);
+
+    bCanFire = true;
+    bIsReloading = false;
+
+    GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Init OK"));
 }
 
 int32 AWeaponBase::GetMaxAmmo() const

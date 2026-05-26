@@ -12,6 +12,7 @@
 #include "PlayerCharacter.generated.h"
 
 class AWeaponPickup;
+class AWeaponBox;
 
 UCLASS()
 class TEMAPROJECT03_API APlayerCharacter : public ACharacter
@@ -45,6 +46,39 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stat")
     float CharacterAttack = 50.f;
 
+    UPROPERTY(BlueprintReadWrite)
+    TArray<AWeaponBase*> CurrentRandomWeapons;
+
+    UPROPERTY()
+    AWeaponBase* Slot1Weapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* Slot2Weapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* PistolWeapon = nullptr;
+
+    UPROPERTY()
+    AWeaponBase* PendingSelectedWeapon = nullptr;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon1Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon2Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SelectWeapon3Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SetSlot1Action;
+
+    UPROPERTY(EditAnywhere, Category = "Input")
+    UInputAction* SetSlot2Action;
+
+    UPROPERTY(BlueprintReadWrite)
+    TSubclassOf<AWeaponBase> SelectedWeapon;
+
     // 무기 클래스 (블루프린트 넣을 용도)
     UPROPERTY(EditAnywhere, Category = "Weapon")
     TSubclassOf<class AWeaponBase> WeaponClass;
@@ -77,6 +111,9 @@ public:
     // 무기 교체 시 탄약을 기억하기 위한 저장소
     UPROPERTY()
     TMap<TSubclassOf<AWeaponBase>, int32> SavedAmmoMap;
+
+    UPROPERTY()
+    AWeaponBox* NearbyWeaponBox;
 
     // 손에 무기를 붙일 소켓 이름
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -240,8 +277,25 @@ public:
     void SetNearbyWeaponPickup(AWeaponPickup* NewPickup);
     void Interact();
     void EquipWeapon();
-    void EquipWeapon(TSubclassOf<class AWeaponBase> NewWeaponClass);
+    void EquipWeapon(AWeaponBase* Weapon);
     void DropCurrentWeapon();
+    void SetNearbyWeaponBox(AWeaponBox* NewBox);
+
+    UFUNCTION(BlueprintCallable)
+    void SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex);
+
+    UFUNCTION(BlueprintCallable)
+    void SelectWeapon(AWeaponBase* NewWeapon);
+
+    UFUNCTION(BlueprintCallable)
+    void SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon);
+
+    void SelectRandomWeapon1();
+    void SelectRandomWeapon2();
+    void SelectRandomWeapon3();
+
+    void PutWeaponInSlot1();
+    void PutWeaponInSlot2();
 
     void EquipRifle();
     void EquipShotgun();

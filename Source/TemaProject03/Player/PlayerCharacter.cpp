@@ -14,6 +14,7 @@
 #include "Sound/SoundBase.h"
 #include "Particles/ParticleSystem.h"
 
+#include "TemaProject03/BattelSystem/WeaponBox.h"
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "WeaponPickup.h"
@@ -106,9 +107,17 @@ void APlayerCharacter::BeginPlay()
     }
 
     // 무기 스폰 및 부착 로직 추가
-    if (WeaponClass)
+    if (PistolClass)
     {
-        EquipWeapon(WeaponClass);
+        PistolWeapon =
+            GetWorld()->SpawnActor<AWeaponBase>(PistolClass);
+
+        if (PistolWeapon)
+        {
+            PistolWeapon->SetOwner(this);
+
+            EquipWeapon(PistolWeapon);
+        }
     }
 
     // 게임 시작 시 Ammo / SkillCooldown 업데이트
@@ -183,6 +192,56 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         {
             EnhancedInput->BindAction(SkillAction, ETriggerEvent::Started, this, &APlayerCharacter::UseSkillInput);
         }
+
+        if (SelectWeapon1Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon1Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon1
+            );
+        }
+
+        if (SelectWeapon2Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon2Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon2
+            );
+        }
+
+        if (SelectWeapon3Action)
+        {
+            EnhancedInput->BindAction(
+                SelectWeapon3Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::SelectRandomWeapon3
+            );
+        }
+
+        if (SetSlot1Action)
+        {
+            EnhancedInput->BindAction(
+                SetSlot1Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::PutWeaponInSlot1
+            );
+        }
+
+        if (SetSlot2Action)
+        {
+            EnhancedInput->BindAction(
+                SetSlot2Action,
+                ETriggerEvent::Started,
+                this,
+                &APlayerCharacter::PutWeaponInSlot2
+            );
+        }
     }
 }
 
@@ -252,27 +311,27 @@ float APlayerCharacter::GetRemainingCooldown() const
 
 void APlayerCharacter::EquipWeapon()
 {
-    EquipWeapon(WeaponClass);
+    if (WeaponClass)
+    {
+        AWeaponBase* NewWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+
+        EquipWeapon(NewWeapon);
+    }
 }
 
 void APlayerCharacter::EquipRifle()
 {
-    EquipWeapon(RifleClass);
+    EquipWeapon(Slot1Weapon);
 }
 
 void APlayerCharacter::EquipShotgun()
 {
-    EquipWeapon(ShotgunClass);
+    EquipWeapon(Slot2Weapon);
 }
 
 void APlayerCharacter::EquipPistol()
 {
-    EquipWeapon(PistolClass);
-}
-
-void APlayerCharacter::ChangeWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
-{
-    EquipWeapon(NewWeaponClass);
+    EquipWeapon(PistolWeapon);
 }
 
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용
@@ -386,62 +445,57 @@ void APlayerCharacter::SetNearbyWeaponPickup(AWeaponPickup* NewPickup)
 
 void APlayerCharacter::Interact()
 {
-    if (!NearbyWeaponPickup)
+    UE_LOG(LogTemp, Warning, TEXT("INTERACT KEY PRESSED"));
+
+    if (NearbyWeaponBox)
     {
-        UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
-        return;
+        NearbyWeaponBox->OpenWeaponBox(this);
     }
 
-    TSubclassOf<AWeaponBase> NewWeaponClass = NearbyWeaponPickup->GetWeaponClass();
-    if (!NewWeaponClass)
-    {
-        return;
-    }
+    //if (!NearbyWeaponPickup)
+    //{
+    //    UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
+    //    return;
+    //}
 
-    AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
-    NearbyWeaponPickup = nullptr;
+    //AWeaponBase* WeaponInstance = NearbyWeaponPickup->GetWeaponInstance();
 
-    EquipWeapon(NewWeaponClass);
+    //if (!WeaponInstance)
+    //{
+    //    return;
+    //}
 
-    PickupToDestroy->Destroy();
+    //AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
+    //NearbyWeaponPickup = nullptr;
+
+    //EquipWeapon(WeaponInstance);
+
+    //PickupToDestroy->Destroy();
 }
 
-void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
+void APlayerCharacter::EquipWeapon(AWeaponBase* NewWeapon)
 {
-    if (!NewWeaponClass || !GetWorld())
+    if (!NewWeapon || !GetWorld())
     {
         return;
     }
 
-    DropCurrentWeapon();
-
-    WeaponClass = NewWeaponClass;
-
-    FActorSpawnParameters SpawnParams;
-    SpawnParams.Owner = this;
-    SpawnParams.Instigator = this;
-    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(NewWeaponClass, SpawnParams);
-    if (!CurrentWeapon)
+    if (CurrentWeapon)
     {
-        CurrentWeaponType = EWeaponType::None;
-        return;
+        CurrentWeapon->SetActorHiddenInGame(true);
+        CurrentWeapon->StopFire();
     }
-    if (SavedAmmoMap.Contains(NewWeaponClass))
-    {
-        CurrentWeapon->CurrentAmmo = SavedAmmoMap[NewWeaponClass];
-    }
+
+    CurrentWeapon = NewWeapon;
 
     CurrentWeapon->SetOwner(this);
 
-    // 현재 무기 타입을 ABP에서 읽을 수 있게 저장
+    CurrentWeapon->SetActorHiddenInGame(false);
+
     CurrentWeaponType = CurrentWeapon->WeaponType;
 
     USkeletalMeshComponent* AttachMesh = nullptr;
 
-    // 1인칭 팔 메시가 실제로 들어있으면 팔에 붙이고,
-    // 없으면 캐릭터 본체 Mesh의 손 소켓에 붙인다.
     if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
     {
         AttachMesh = FirstPersonArmsMesh;
@@ -451,26 +505,18 @@ void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
         AttachMesh = GetMesh();
     }
 
-    if (AttachMesh)
-    {
-        CurrentWeapon->AttachToComponent(
-            AttachMesh,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-            WeaponAttachSocketName
-        );
-    }
-    else
-    {
-        CurrentWeapon->AttachToComponent(
-            CameraComp,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale
-        );
-    }
+    CurrentWeapon->AttachToComponent(
+        AttachMesh,
+        FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+        WeaponAttachSocketName
+    );
 
-    // WeaponData에 저장된 위치/회전/크기 적용
     CurrentWeapon->ApplyWeaponAttachTransform();
 
-    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    CurrentWeapon->InitWeapon(this);
+
+    if (APController* PlayerController =
+        Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
         PlayerController->UpdateHUD_Ammo();
     }
@@ -513,6 +559,98 @@ void APlayerCharacter::DropCurrentWeapon()
 
     // 현재 무기가 없으므로 ABP에는 None 상태 전달
     CurrentWeaponType = EWeaponType::None;
+}
+
+void APlayerCharacter::SetNearbyWeaponBox(AWeaponBox* NewBox)
+{
+    NearbyWeaponBox = NewBox;
+}
+
+void APlayerCharacter::SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex)
+{
+    if (!NewWeapon)
+    {
+        return;
+    }
+
+    switch (SlotIndex)
+    {
+    case 1:
+        Slot1Weapon = NewWeapon;
+        break;
+
+    case 2:
+        Slot2Weapon = NewWeapon;
+        break;
+    }
+
+    EquipWeapon(NewWeapon);
+}
+
+void APlayerCharacter::SelectWeapon(AWeaponBase* NewWeapon)
+{
+    PendingSelectedWeapon = NewWeapon;
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Selected"));
+}
+
+void APlayerCharacter::SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon)
+{
+    SelectedWeapon = NewWeapon;
+}
+
+void APlayerCharacter::SelectRandomWeapon1()
+{
+    if (CurrentRandomWeapons.Num() > 0)
+    {
+        SelectWeapon(CurrentRandomWeapons[0]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 1"));
+    }
+}
+
+void APlayerCharacter::SelectRandomWeapon2()
+{
+    if (CurrentRandomWeapons.Num() > 1)
+    {
+        SelectWeapon(CurrentRandomWeapons[1]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 2"));
+    }
+}
+
+void APlayerCharacter::SelectRandomWeapon3()
+{
+    if (CurrentRandomWeapons.Num() > 2)
+    {
+        SelectWeapon(CurrentRandomWeapons[2]);
+
+        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 3"));
+    }
+}
+
+void APlayerCharacter::PutWeaponInSlot1()
+{
+    if (!PendingSelectedWeapon)
+    {
+        return;
+    }
+
+    SetWeaponToSlot(PendingSelectedWeapon, 1);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 1"));
+}
+
+void APlayerCharacter::PutWeaponInSlot2()
+{
+    if (!PendingSelectedWeapon)
+    {
+        return;
+    }
+
+    SetWeaponToSlot(PendingSelectedWeapon, 2);
+
+    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 2"));
 }
 
 void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
