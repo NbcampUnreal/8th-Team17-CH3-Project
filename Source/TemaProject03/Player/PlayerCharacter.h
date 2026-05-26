@@ -24,6 +24,9 @@ public:
 public:
     void ApplyDamage(float DamageAmount);
 
+    UFUNCTION(BlueprintCallable, Category = "Stat")
+    void RestoreHealthByPercent(float Percent);
+
     // 업그레이드로 증가할 HP/공격력 기본 증가량
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
     float UpgradeAmount = 10.0f;

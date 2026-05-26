@@ -54,6 +54,10 @@ class TEMAPROJECT03_API AHealthRecoveryItem : public AItem
 
 public:
     virtual void UseItem_Implementation(APlayerCharacter* Player) override;
+
+protected:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Health", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float RecoveryPercent = 0.1f;
 };
 
 UCLASS()

@@ -747,6 +747,24 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
     }
 }
 
+void APlayerCharacter::RestoreHealthByPercent(float Percent)
+{
+    if (CurrentHealth <= 0.0f || MaxHealth <= 0.0f)
+    {
+        return;
+    }
+
+    const float HealAmount = MaxHealth * Percent;
+    CurrentHealth = FMath::Clamp(CurrentHealth + HealAmount, 0.0f, MaxHealth);
+
+    if (APController* PlayerController = Cast<APController>(GetController()))
+    {
+        PlayerController->UpdateHUD_HP();
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Item] Heal %.1f%% / HP: %.1f / %.1f"), Percent * 100.0f, CurrentHealth, MaxHealth);
+}
+
 void APlayerCharacter::UpgradeMaxHealth(float Amount)
 {
     MaxHealth += Amount;

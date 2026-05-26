@@ -65,7 +65,7 @@ void AHealthRecoveryItem::UseItem_Implementation(APlayerCharacter* Player)
         return;
     }
 
-    //Player->RestoreHealthToFull();
+    Player->RestoreHealthByPercent(RecoveryPercent);
 }
 
 void AWeaponItem::UseItem_Implementation(APlayerCharacter* Player)

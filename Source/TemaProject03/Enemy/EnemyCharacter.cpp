@@ -11,6 +11,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Perception/PawnSensingComponent.h"
+#include "TemaProject03/Item/Item.h"
 
 AEnemyCharacter::AEnemyCharacter()
 {
@@ -580,7 +581,35 @@ void AEnemyCharacter::DestroyEnemy()
         OwnerSpawner->OnEnemyKilled();
     }
 
+    TryDropHealthItem();
+
     Destroy();
+}
+
+void AEnemyCharacter::TryDropHealthItem()
+{
+    if (!HealthDropItemClass || !GetWorld())
+    {
+        return;
+    }
+
+    if (FMath::FRand() > HealthDropChance)
+    {
+        return;
+    }
+
+    FVector DropLocation = GetActorLocation();
+    DropLocation.Z += DropLocationZOffset;
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+    GetWorld()->SpawnActor<AItem>(
+        HealthDropItemClass,
+        DropLocation,
+        FRotator::ZeroRotator,
+        SpawnParams
+    );
 }
 
 void AEnemyCharacter::OnHitEnd()

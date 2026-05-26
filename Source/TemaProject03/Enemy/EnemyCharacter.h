@@ -14,6 +14,7 @@ class USphereComponent;
 class UPawnSensingComponent;
 class UAnimMontage;
 class AEnemySpawner;
+class AItem;
 
 UCLASS()
 class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
@@ -30,6 +31,17 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         virtual void Tick(float DeltaTime) override;
 
     protected:
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop")
+        TSubclassOf<AItem> HealthDropItemClass;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+        float HealthDropChance = 0.4f;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Drop")
+        float DropLocationZOffset = 40.0f;
+
+        void TryDropHealthItem();
 
         // =========================
         // Attack Setting
