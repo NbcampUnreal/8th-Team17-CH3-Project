@@ -4,6 +4,7 @@
 #include "EnemyCharacter.h"
 #include "TemaProject03/Gimmick/Portal.h"
 #include "TemaProject03/Gimmick/RoomManager.h"
+#include "TemaProject03/Player/PController.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
@@ -307,6 +308,11 @@ void AEnemySpawner::OnEnemyKilled()
     CurrentAliveEnemies = FMath::Max(0, CurrentAliveEnemies - 1);
     GlobalKillCount++;
 
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_KillCount();
+    }
+
     // 20, 40, 60, 100, 200, 300... 킬 달성 시 업그레이드 로그 출력
     CheckUpgradeReward();
 
@@ -314,6 +320,11 @@ void AEnemySpawner::OnEnemyKilled()
     if (StatUpgradeInterval > 0 && GlobalKillCount % StatUpgradeInterval == 0)
     {
         GlobalStatLevel++;
+
+        if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+        {
+            PlayerController->UpdateHUD_StageCount();
+        }
 
         // 기존에 몬스터가 존재하면 그 기존 몬스터를 강화한 상태로 변경
         // 현재는 뺀 상태 넣으면 데이터 테이블 몬스터가 꼬일 수 있음
@@ -351,6 +362,11 @@ void AEnemySpawner::OnEnemyKilled()
 void AEnemySpawner::OnBossKilled()
 {
     GlobalBossKillCount++;
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_BossKillCount();
+    }
 
     UE_LOG(LogTemp, Warning,
         TEXT("Boss Killed! Total Boss Kill: %d"),

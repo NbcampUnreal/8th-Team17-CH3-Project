@@ -405,12 +405,18 @@ void APlayerCharacter::ResetDashCooldown()
 
 void APlayerCharacter::StartFire()
 {
+    // RPG 사용 중에는 일반 총 발사를 막음
+    if (EquippedRPGActor)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[RPG] Cannot fire normal weapon while RPG is equipped."));
+        return;
+    }
+
     if (CurrentWeapon)
     {
         UE_LOG(LogTemp, Warning, TEXT("StartFire Called!"));
         UE_LOG(LogTemp, Warning, TEXT("CurrentWeapon is Valid!"));
 
-        // 실제 발사 로직 호출
         CurrentWeapon->StartFire();
     }
     else
@@ -786,10 +792,18 @@ bool APlayerCharacter::EquipRPG()
         return false;
     }
 
-    // RPG 액터가 실제로 장착된 뒤에 원래 총을 숨김
+    // RPG 사용 중에는 일반 총 발사를 멈추고 총을 숨김
     if (CurrentWeapon)
     {
+        CurrentWeapon->StopFire();
         CurrentWeapon->SetActorHiddenInGame(true);
+    }
+
+    // 지금 실제로 쓰는 팔/몸 Mesh는 FirstPersonArmsMesh가 아니라 기본 Mesh라서 GetMesh()를 숨김
+    if (GetMesh())
+    {
+        GetMesh()->SetHiddenInGame(true, true);
+        GetMesh()->SetVisibility(false, true);
     }
 
     // 카메라에 붙인 뒤, BP_PlayerCharacter의 RPGAttach 값으로 위치/회전/크기를 적용
@@ -819,6 +833,13 @@ void APlayerCharacter::UnequipRPG()
 
         // RPG 사용 중 무기 반동 위치가 남아있을 수 있으므로 원래 부착값으로 복구
         CurrentWeapon->ApplyWeaponAttachTransform();
+    }
+
+    // RPG 사용이 끝나면 기본 Mesh를 다시 보이게 복구
+    if (GetMesh())
+    {
+        GetMesh()->SetHiddenInGame(false, true);
+        GetMesh()->SetVisibility(true, true);
     }
 
     UE_LOG(LogTemp, Warning, TEXT("[RPG] Unequip RPG"));
