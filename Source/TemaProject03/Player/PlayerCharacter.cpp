@@ -456,47 +456,31 @@ void APlayerCharacter::Interact()
     if (NearbyWeaponBox)
     {
         NearbyWeaponBox->OpenWeaponBox(this);
+        return;
     }
 
-    //if (!NearbyWeaponPickup)
-    //{
-    //    UE_LOG(LogTemp, Warning, TEXT("[Pickup] No NearbyWeaponPickup"));
-    //    return;
-    //}
-
-    //AWeaponBase* WeaponInstance = NearbyWeaponPickup->GetWeaponInstance();
-
-    //if (!WeaponInstance)
-    //{
-    //    return;
-    //}
-
-    //AWeaponPickup* PickupToDestroy = NearbyWeaponPickup;
-    //NearbyWeaponPickup = nullptr;
-
-    //EquipWeapon(WeaponInstance);
-
-    //PickupToDestroy->Destroy();
+    UE_LOG(LogTemp, Warning, TEXT("[Interact] No nearby weapon box."));
 }
 
 void APlayerCharacter::EquipWeapon(AWeaponBase* NewWeapon)
 {
     if (!NewWeapon || !GetWorld())
     {
+        UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] NewWeapon is NULL"));
         return;
     }
 
     if (CurrentWeapon)
     {
-        CurrentWeapon->SetActorHiddenInGame(true);
         CurrentWeapon->StopFire();
+        CurrentWeapon->SetActorHiddenInGame(true);
+        CurrentWeapon->SetActorEnableCollision(false);
     }
 
     CurrentWeapon = NewWeapon;
-
     CurrentWeapon->SetOwner(this);
-
     CurrentWeapon->SetActorHiddenInGame(false);
+    CurrentWeapon->SetActorEnableCollision(false);
 
     CurrentWeaponType = CurrentWeapon->WeaponType;
 
@@ -511,21 +495,31 @@ void APlayerCharacter::EquipWeapon(AWeaponBase* NewWeapon)
         AttachMesh = GetMesh();
     }
 
-    CurrentWeapon->AttachToComponent(
-        AttachMesh,
-        FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-        WeaponAttachSocketName
-    );
+    if (AttachMesh)
+    {
+        CurrentWeapon->AttachToComponent(
+            AttachMesh,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+            WeaponAttachSocketName
+        );
+    }
+    else
+    {
+        CurrentWeapon->AttachToComponent(
+            CameraComp,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale
+        );
+    }
 
     CurrentWeapon->ApplyWeaponAttachTransform();
-
     CurrentWeapon->InitWeapon(this);
 
-    if (APController* PlayerController =
-        Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
         PlayerController->UpdateHUD_Ammo();
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] Equipped: %s"), *CurrentWeapon->GetName());
 }
 
 void APlayerCharacter::DropCurrentWeapon()
@@ -595,9 +589,15 @@ void APlayerCharacter::SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex)
 
 void APlayerCharacter::SelectWeapon(AWeaponBase* NewWeapon)
 {
+    if (!NewWeapon)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Selected weapon is NULL"));
+        return;
+    }
+
     PendingSelectedWeapon = NewWeapon;
 
-    UE_LOG(LogTemp, Warning, TEXT("Weapon Selected"));
+    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Selected: %s"), *NewWeapon->GetName());
 }
 
 void APlayerCharacter::SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon)
@@ -639,24 +639,28 @@ void APlayerCharacter::PutWeaponInSlot1()
 {
     if (!PendingSelectedWeapon)
     {
+        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] No pending weapon for Slot 1"));
         return;
     }
 
     SetWeaponToSlot(PendingSelectedWeapon, 1);
+    PendingSelectedWeapon = nullptr;
 
-    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 1"));
+    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Put In Slot 1"));
 }
 
 void APlayerCharacter::PutWeaponInSlot2()
 {
     if (!PendingSelectedWeapon)
     {
+        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] No pending weapon for Slot 2"));
         return;
     }
 
     SetWeaponToSlot(PendingSelectedWeapon, 2);
+    PendingSelectedWeapon = nullptr;
 
-    UE_LOG(LogTemp, Warning, TEXT("Weapon Put In Slot 2"));
+    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Put In Slot 2"));
 }
 
 void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
