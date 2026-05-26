@@ -74,6 +74,7 @@ public:
     UPROPERTY(EditAnywhere, Category = "Input")
     UInputAction* PistolAction;
 
+    // 무기 교체 시 탄약을 기억하기 위한 저장소
     UPROPERTY()
     TMap<TSubclassOf<AWeaponBase>, int32> SavedAmmoMap;
 
@@ -177,9 +178,26 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback|Damage")
     float HitEffectZOffset = 40.0f;
 
+    // 플레이어 사망 시 한 번만 처리하기 위한 상태값
+    // ABP에서 이 값을 읽어서 Dead State로 전환한다.
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Death")
+    bool bIsDead = false;
+
+    // 사망 후 페이드아웃이 시작되기까지 기다릴 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
+    float DeathFadeDelay = 1.2f;
+
+    // 사망 페이드아웃에 걸리는 시간
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
+    float DeathFadeDuration = 3.0f;
+
+    void Die();
+    void StartDeathFade();
+
 private:
     AActor* EquippedRPGActor = nullptr;
     FTimerHandle RPGUnequipTimerHandle;
+    FTimerHandle DeathFadeTimerHandle;
 
     bool EquipRPG();
     void UnequipRPG();
@@ -245,11 +263,11 @@ public:
     UAnimMontage* ReloadMontage;
 
     bool bIsDashing = false;           // 대시 상태 체크
-    bool bIsDashOnCooldown = false; // 쿨타임 상태 체크
+    bool bIsDashOnCooldown = false;    // 쿨타임 상태 체크
 
     FVector DashDirection;            // 대시 방향
-    float OriginalMaxWalkSpeed;      // 원래 걷기 속도 저장
-    float OriginalMaxAcceleration;   // 원래 가속도 저장
+    float OriginalMaxWalkSpeed;       // 원래 걷기 속도 저장
+    float OriginalMaxAcceleration;    // 원래 가속도 저장
 
     FTimerHandle DashTimerHandle;         // 대시 종료용 타이머 핸들
     FTimerHandle DashCooldownTimerHandle; // 쿨타임 종료용 타이머 핸들
@@ -258,7 +276,7 @@ public:
     float MinViewPitch = -20.0f;     // 카메라 최소 각도
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-    float MaxViewPitch = 60.0f;     // 카메라 최대 각도
+    float MaxViewPitch = 60.0f;      // 카메라 최대 각도
 
     float GetCurrentHealth() const { return CurrentHealth; }
     float GetMaxHealth() const { return MaxHealth; }

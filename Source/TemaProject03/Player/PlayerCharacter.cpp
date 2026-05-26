@@ -742,8 +742,7 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
 
     if (CurrentHealth <= 0.0f)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
-        Destroy();
+        Die();
     }
 }
 
@@ -784,4 +783,84 @@ void APlayerCharacter::UpgradeAttack(float Amount)
     CharacterAttack += Amount;
 
     UE_LOG(LogTemp, Warning, TEXT("[Upgrade] CharacterAttack increased by %.1f / Attack: %.1f"), Amount, CharacterAttack);
+}
+
+void APlayerCharacter::Die()
+{
+    if (bIsDead)
+    {
+        return;
+    }
+
+    bIsDead = true;
+
+    UE_LOG(LogTemp, Warning, TEXT("Player Dead"));
+
+    StopFire();
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->SetActorHiddenInGame(true);
+    }
+
+    if (EquippedRPGActor)
+    {
+        EquippedRPGActor->SetActorHiddenInGame(true);
+    }
+
+    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        DisableInput(PlayerController);
+
+        // 죽을 때 1인칭 카메라를 3인칭 위치로 뒤로 빼서 사망 애니메이션이 보이게
+        if (SpringArmComp)
+        {
+            SpringArmComp->TargetArmLength = 350.0f;
+            SpringArmComp->SetRelativeLocation(FVector(0.0f, 0.0f, 100.0f));
+            SpringArmComp->bUsePawnControlRotation = false;
+            SpringArmComp->bDoCollisionTest = false;
+        }
+
+        if (CameraComp)
+        {
+            CameraComp->bUsePawnControlRotation = false;
+            CameraComp->SetRelativeRotation(FRotator(-15.0f, 0.0f, 0.0f));
+        }
+    }
+
+    if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+    {
+        Movement->StopMovementImmediately();
+        Movement->DisableMovement();
+    }
+
+    if (USkeletalMeshComponent* DeathMesh = GetMesh())
+    {
+        DeathMesh->SetHiddenInGame(false);
+        DeathMesh->SetOwnerNoSee(false);
+    }
+
+    // 죽는 애니메이션을 잠깐 보여준 뒤 화면을 검게 페이드아웃
+    GetWorldTimerManager().SetTimer(
+        DeathFadeTimerHandle,
+        this,
+        &APlayerCharacter::StartDeathFade,
+        DeathFadeDelay,
+        false
+    );
+}
+
+void APlayerCharacter::StartDeathFade()
+{
+    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        PlayerController->ClientSetCameraFade(
+            true,
+            FColor::Black,
+            FVector2D(0.0f, 1.0f),
+            DeathFadeDuration,
+            false,
+            true
+        );
+    }
 }
