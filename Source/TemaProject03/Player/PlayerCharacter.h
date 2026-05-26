@@ -24,6 +24,18 @@ public:
 public:
     void ApplyDamage(float DamageAmount);
 
+    // 업그레이드로 증가할 HP/공격력 기본 증가량
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
+    float UpgradeAmount = 10.0f;
+
+    // 최대 체력 업그레이드 적용
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void UpgradeMaxHealth(float Amount);
+
+    // 공격력 업그레이드 적용
+    UFUNCTION(BlueprintCallable, Category = "Upgrade")
+    void UpgradeAttack(float Amount);
+
     // RPG 탄두 스폰 위치를 스킬에서 가져가기 위한 함수
     bool GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) const;
 

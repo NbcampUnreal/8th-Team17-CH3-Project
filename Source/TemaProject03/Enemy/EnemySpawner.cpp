@@ -9,6 +9,10 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 
+#include "TemaProject03/Gimmick/RoomManager.h"
+#include "TemaProject03/Player/PController.h"
+
+
 int32 AEnemySpawner::GlobalKillCount = 0;
 int32 AEnemySpawner::GlobalBossKillCount = 0;
 int32 AEnemySpawner::GlobalStatLevel = 0;
@@ -22,7 +26,25 @@ void AEnemySpawner::BeginPlay()
 {
     Super::BeginPlay();
 
+
     // 포탈 시작 비활성화
+
+    // =========================
+    // Upgrade Init
+    // =========================
+
+    // 첫 업그레이드 목표는 UpgradeKillGoals[0]부터 확인
+    NextUpgradeGoalIndex = 0;
+
+    // 20, 40, 60, 100 이후에는 200, 300, 400... 순서로 업그레이드 제공
+    NextRepeatUpgradeKillGoal = 200;
+
+    // =========================
+    // Portal Init
+    // =========================
+
+    // 게임 시작 시 포탈 비활성화
+
     AActor* PortalActor = UGameplayStatics::GetActorOfClass(GetWorld(), APortal::StaticClass());
     if (APortal* Portal = Cast<APortal>(PortalActor))
     {
@@ -131,6 +153,12 @@ void AEnemySpawner::SpawnBoss()
         UE_LOG(LogTemp, Error, TEXT("SpawnPoints is Empty"));
         return;
     }
+    // =========================
+    // Upgrade Milestone
+    // =========================
+
+    // 20, 40, 60, 100, 200, 300... 킬 달성 시 업그레이드 선택 제공
+    CheckUpgradeReward();
 
     AActor* SelectedPoint = SpawnPoints[FMath::RandRange(0, SpawnPoints.Num() - 1)];
 
@@ -170,7 +198,64 @@ void AEnemySpawner::SpawnBoss()
     );
 }
 
-FName AEnemySpawner::GetEnemyRowNameByStatLevel(bool bIsJumpEnemy) const
+
+FName AEnemySpawner::GetEnemyRowNameByStatLevel(bool bIsJumpEnemy) const {}
+
+void AEnemySpawner::CheckUpgradeReward()
+{
+    bool bShouldShowUpgrade = false;
+
+    // 먼저 UpgradeKillGoals 배열에 있는 목표 킬 수를 순서대로 확인
+    if (UpgradeKillGoals.IsValidIndex(NextUpgradeGoalIndex))
+    {
+        if (KillCount >= UpgradeKillGoals[NextUpgradeGoalIndex])
+        {
+            bShouldShowUpgrade = true;
+            NextUpgradeGoalIndex++;
+        }
+    }
+    // 배열 목표를 모두 지난 뒤에는 RepeatUpgradeKillInterval 간격으로 반복 제공
+    else
+    {
+        if (KillCount >= NextRepeatUpgradeKillGoal)
+        {
+            bShouldShowUpgrade = true;
+            NextRepeatUpgradeKillGoal += RepeatUpgradeKillInterval;
+        }
+    }
+
+    if (!bShouldShowUpgrade)
+    {
+        return;
+    }
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("[Upgrade] Choice Trigger / KillCount: %d"),
+        KillCount
+    );
+
+    //PlayerController를 통해 HUD의 업그레이드 선택 UI 호출
+    if (APController* PlayerController = Cast<APController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+    {
+        PlayerController->ShowUpgradeChoice();
+    }
+
+    // 테스트용 로그
+    //if (GEngine)
+    //{
+    //    GEngine->AddOnScreenDebugMessage(
+    //        -1,
+    //        3.0f,
+    //        FColor::Cyan,
+    //        FString::Printf(
+    //            TEXT("Upgrade Choice! Kill: %d / Choose HP +10 or Attack +10"),
+    //            KillCount
+    //        )
+    //    );
+    //}
+}
+
+void AEnemySpawner::ClearAliveEnemies()
 {
     const FString Prefix = bIsJumpEnemy ? TEXT("Enemy_B") : TEXT("Enemy_A");
 

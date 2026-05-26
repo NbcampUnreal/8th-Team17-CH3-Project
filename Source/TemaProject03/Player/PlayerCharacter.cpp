@@ -746,3 +746,24 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
         Destroy();
     }
 }
+
+void APlayerCharacter::UpgradeMaxHealth(float Amount)
+{
+    MaxHealth += Amount;
+    CurrentHealth += Amount;
+    CurrentHealth = FMath::Clamp(CurrentHealth, 0.0f, MaxHealth);
+
+    if (APController* PlayerController = Cast<APController>(GetController()))
+    {
+        PlayerController->UpdateHUD_HP();
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[Upgrade] MaxHealth increased by %.1f / MaxHealth: %.1f"), Amount, MaxHealth);
+}
+
+void APlayerCharacter::UpgradeAttack(float Amount)
+{
+    CharacterAttack += Amount;
+
+    UE_LOG(LogTemp, Warning, TEXT("[Upgrade] CharacterAttack increased by %.1f / Attack: %.1f"), Amount, CharacterAttack);
+}

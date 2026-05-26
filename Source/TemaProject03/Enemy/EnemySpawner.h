@@ -118,6 +118,28 @@ protected:
     FTimerHandle SpawnTimerHandle;
 
     // =========================
+    // Upgrade Setting
+    // =========================
+
+    // 업그레이드가 제공되는 첫 목표 킬 수들
+    // 예: 20, 40, 60, 100킬 달성 시 업그레이드 선택 제공
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
+    TArray<int32> UpgradeKillGoals = { 20, 40, 60, 100 };
+
+    // UpgradeKillGoals 이후 반복 업그레이드 간격
+    // 기본값 100이면 200, 300, 400... 킬마다 업그레이드 선택 제공
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
+    int32 RepeatUpgradeKillInterval = 100;
+
+    // 다음 업그레이드 목표 인덱스
+    // UpgradeKillGoals 배열에서 다음으로 확인할 위치
+    int32 NextUpgradeGoalIndex = 0;
+
+    // 반복 업그레이드의 다음 목표 킬 수
+    // 기본값 200이면 100 이후에는 200, 300, 400... 순서로 진행
+    int32 NextRepeatUpgradeKillGoal = 200;
+
+    // =========================
     // Spawn Function
     // =========================
 
@@ -136,6 +158,9 @@ protected:
 
     // 현재 살아있는 몬스터들에게 현재 강화 단계 데이터 다시 적용
     void ApplyCurrentLevelToAliveEnemies();
+
+    // 목표 킬 수 달성 시 업그레이드 선택을 띄울지 확인
+    void CheckUpgradeReward();
 
 public:
     // =========================
