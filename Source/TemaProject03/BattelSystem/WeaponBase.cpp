@@ -305,10 +305,10 @@ void AWeaponBase::Reload()
         UGameplayStatics::PlaySoundAtLocation(GetWorld(), ReloadSound, GetActorLocation());
     }
 
-    // 재장전 시 ReloadAnim 출력
+    // 재장전 시 ReloadBar 출력
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
     {
-        PlayerController->UpdateHUD_Reload(true);
+        PlayerController->StartReloadUI();
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Start Reload"));
@@ -323,12 +323,6 @@ void AWeaponBase::FinishReload()
     CurrentAmmo = WeaponData.MagazineSize;
 
     bCanFire = true;
-
-    // 재장전 후 ReloadAnim 숨기기
-    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
-    {
-        PlayerController->UpdateHUD_Reload(false);
-    }
 
     // 재장전 후 탄약 HUD 업데이트
     if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))

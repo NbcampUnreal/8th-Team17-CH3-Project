@@ -122,6 +122,13 @@ public:
     void Reload();
     void FinishReload();
 
+    float GetRemainingReloadTime() const
+    {
+        if (!bIsReloading) return 0.0f;
+        return GetWorld()->GetTimerManager().GetTimerRemaining(
+            ReloadTimerHandle);
+    }
+
     int32 GetCurrentAmmo() const;
     int32 GetMaxAmmo() const;
 

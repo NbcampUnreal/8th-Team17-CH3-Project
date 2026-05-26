@@ -1,4 +1,6 @@
 ﻿#include "PController.h"
+#include "EngineUtils.h"
+#include "Camera/CameraActor.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "Blueprint/UserWidget.h"
@@ -10,7 +12,9 @@
 
 APController::APController()
     : HUDWidgetClass(nullptr),
-    HUDWidgetInstance(nullptr)
+    HUDWidgetInstance(nullptr),
+    LobbyWidgetClass(nullptr),
+    LobbyWidgetInstance(nullptr)
 {
 
 }
@@ -30,15 +34,86 @@ void APController::BeginPlay()
         }
     }
 
+    for (TActorIterator<ACameraActor> Camera(GetWorld()); Camera; ++Camera)
+    {
+        ACameraActor* LobbyCamera = *Camera;
+
+        if (LobbyCamera->ActorHasTag(FName("LobbyCamera")))
+        {
+            SetViewTargetWithBlend(LobbyCamera);
+            break;
+        }
+    }
+
     if (HUDWidgetClass)
     {
         HUDWidgetInstance = CreateWidget<UUserWidget>(this, HUDWidgetClass);
-        if (HUDWidgetInstance)
+    }
+
+    ShowLobbyHUD();    
+}
+
+void APController::ShowGameHUD()
+{
+    if (!HUDWidgetInstance)
+    {
+        if (HUDWidgetClass)
         {
-            HUDWidgetInstance->AddToViewport();
-            UpdateHUD_HP();            
+            HUDWidgetInstance = CreateWidget<UUserWidget>(this, HUDWidgetClass);
+        }        
+    }
+
+    if (HUDWidgetInstance)
+    {
+        HUDWidgetInstance->AddToViewport();
+
+        bShowMouseCursor = false;
+        SetInputMode(FInputModeGameOnly());
+
+        UpdateHUD_HP();
+    }   
+}
+
+void APController::ShowLobbyHUD()
+{
+    if (HUDWidgetInstance)
+    {
+        HUDWidgetInstance->RemoveFromParent();
+        HUDWidgetInstance = nullptr;
+    }
+
+    if (LobbyWidgetInstance)
+    {
+        LobbyWidgetInstance->RemoveFromParent();
+        LobbyWidgetInstance = nullptr;
+    }
+
+    if (LobbyWidgetClass)
+    {
+        LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
+        if (LobbyWidgetInstance)
+        {
+            LobbyWidgetInstance->AddToViewport();
+
+            bShowMouseCursor = true;
+            SetInputMode(FInputModeUIOnly());
         }
     }
+}
+
+void APController::StartGame()
+{
+    if (LobbyWidgetInstance)
+    {
+        LobbyWidgetInstance->RemoveFromParent();
+    }
+
+    if (APawn* MyPawn = GetPawn())
+    {
+        SetViewTargetWithBlend(MyPawn, 0.0f);
+    }
+
+    ShowGameHUD();
 }
 
 void APController::UpdateHUD_HP()
@@ -92,25 +167,52 @@ void APController::TriggerUICustomEvent(FName EventName)
     }
 }
 
-void APController::UpdateHUD_Reload(bool bIsReload)
+void APController::StartReloadUI()
 {
     if (!HUDWidgetInstance) return;
 
-    if (bIsReload)
+    // 1. 장전 애니메이션 1번 실행
+    UFunction* PlayReload = HUDWidgetInstance->FindFunction(FName("PlayReload"));
+    if (PlayReload)
     {
-        UFunction* PlayReloadAnim = HUDWidgetInstance->FindFunction(FName("PlayReloadAnim"));        
-        if (PlayReloadAnim)
-        {
-            HUDWidgetInstance->ProcessEvent(PlayReloadAnim, nullptr);
-        }        
+        HUDWidgetInstance->ProcessEvent(PlayReload, nullptr);
     }
-    else
+
+    // 2. 0.1초마다 UpdateHUD_Reload를 반복 실행하도록 타이머 켬
+    GetWorldTimerManager().SetTimer(ReloadTimerHandle, this, &APController::UpdateHUD_Reload, 0.1f, true);
+}
+
+void APController::UpdateHUD_Reload()
+{
+    if (!HUDWidgetInstance) return;
+
+    if (APlayerCharacter* PlayerCharacter = Cast<APlayerCharacter>(GetPawn()))
     {
-        UFunction* EndReloadAnim = HUDWidgetInstance->FindFunction(FName("EndReloadAnim"));
-        if (EndReloadAnim)
+        if (PlayerCharacter->CurrentWeapon)
         {
-            HUDWidgetInstance->ProcessEvent(EndReloadAnim, nullptr);
-        }        
+            float RemainingTime = PlayerCharacter->CurrentWeapon->GetRemainingReloadTime();
+
+            // 1. 장전이 완료되었다면 (남은 시간이 0 이하라면)
+            if (RemainingTime <= 0.0f)
+            {
+                GetWorldTimerManager().ClearTimer(ReloadTimerHandle); // 알람 끄기
+
+                // 종료 애니메이션 1번 실행 후 숨기기
+                UFunction* EndReload = HUDWidgetInstance->FindFunction(FName("EndReload"));
+                if (EndReload)
+                {
+                    HUDWidgetInstance->ProcessEvent(EndReload, nullptr);
+                }
+                return; // 함수 종료
+            }
+
+            // 2. 장전 중이라면 프로그레스 바 실시간 갱신
+            if (UProgressBar* ReloadBar = Cast<UProgressBar>(HUDWidgetInstance->GetWidgetFromName(TEXT("ReloadBar"))))
+            {
+                float CooldownRatio = 1.0f - (RemainingTime / PlayerCharacter->CurrentWeapon->WeaponData.ReloadTime);
+                ReloadBar->SetPercent(CooldownRatio);
+            }
+        }
     }
 }
 
@@ -220,5 +322,4 @@ void APController::UpdateHUD_SkillCooldown_2(bool bIsOnCooldown)
             HUDWidgetInstance->ProcessEvent(HideCoolTimeText, nullptr);
         }
     }
-
 }

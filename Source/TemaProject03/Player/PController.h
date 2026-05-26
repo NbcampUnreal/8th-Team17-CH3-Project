@@ -21,14 +21,29 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
     UUserWidget* HUDWidgetInstance;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+    TSubclassOf<UUserWidget> LobbyWidgetClass;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
+    UUserWidget* LobbyWidgetInstance;
+
     FTimerHandle SkillCooldownTimerHandle;
     FTimerHandle SkillCooldownTimerHandle_2;
+    FTimerHandle ReloadTimerHandle;
+
+    
+    UFUNCTION(BlueprintCallable, Category = "HUD")
+    void ShowGameHUD();
+    UFUNCTION(BlueprintCallable, Category = "Menu")
+    void ShowLobbyHUD();
+    UFUNCTION(BlueprintCallable, Category = "Menu")
+    void StartGame();
 
     UFUNCTION(BlueprintCallable)
     void UpdateHUD_HP();
 
     void UpdateHUD_Ammo();
-    void UpdateHUD_Reload(bool bIsReload);
+    void StartReloadUI();
+    void UpdateHUD_Reload();
     void SkillCooldownTimer();
     void SkillCooldownTimer_2();
     void UpdateHUD_SkillCooldown(bool bIsOnCooldown);
