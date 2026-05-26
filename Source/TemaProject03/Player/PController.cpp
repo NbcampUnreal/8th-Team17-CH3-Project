@@ -1,5 +1,6 @@
 ﻿#include "PController.h"
 #include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
 #include "Camera/CameraActor.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -10,6 +11,7 @@
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "SkillComponent.h"
+#include "TemaProject03/Enemy/EnemySpawner.h"
 
 APController::APController()
     : HUDWidgetClass(nullptr),
@@ -52,6 +54,58 @@ void APController::BeginPlay()
     }
 
     ShowLobbyHUD();    
+}
+
+void APController::UpdateHUD_KillCount()
+{
+    if (HUDWidgetInstance)
+    {
+        if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass())))
+        {
+            if (UTextBlock* KillCountText = Cast<UTextBlock>(HUDWidgetInstance->GetWidgetFromName(TEXT("KillCount"))))
+            {
+                KillCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Spawner->GetKillCount())));
+            }            
+        }
+    }
+}
+
+void APController::UpdateHUD_BossKillCount()
+{
+    if (HUDWidgetInstance)
+    {
+        if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass()))) {
+            if (UTextBlock* BossKillCountText = Cast<UTextBlock>(HUDWidgetInstance->GetWidgetFromName(TEXT("BossKillCount"))))
+            {
+                BossKillCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Spawner->GetBossKillCount())));
+            }
+        }
+    }
+}
+
+void APController::UpdateHUD_TimeCount()
+{
+    if (HUDWidgetInstance)
+    {
+        if (UTextBlock* TimeCountText = Cast<UTextBlock>(HUDWidgetInstance->GetWidgetFromName(TEXT("TimeCount"))))
+        {
+            float CurrentTime = GetWorldTimerManager().GetTimerElapsed(LevelTimerHandle);
+            TimeCountText->SetText(FText::FromString(FString::Printf(TEXT("%.1f"), CurrentTime)));
+        }        
+    }
+}
+
+void APController::UpdateHUD_StageCount()
+{
+    if (HUDWidgetInstance)
+    {
+        if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass()))) {
+            if (UTextBlock* StageCountText = Cast<UTextBlock>(HUDWidgetInstance->GetWidgetFromName(TEXT("StageCount"))))
+            {
+                StageCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Spawner->GetBossKillCount())));
+            }
+        }
+    }
 }
 
 void APController::ShowGameHUD()
@@ -113,6 +167,9 @@ void APController::StartGame()
     {
         SetViewTargetWithBlend(MyPawn, 0.0f);
     }
+
+    GetWorldTimerManager().SetTimer(LevelTimerHandle, this, &APController::OnGameOver, 9999.0f, false);
+    GetWorldTimerManager().SetTimer(HUDUpdateTimerHandle, this, &APController::UpdateHUD_TimeCount, 0.1f, true);
 
     ShowGameHUD();
 }

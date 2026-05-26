@@ -29,6 +29,8 @@ public:
     FTimerHandle SkillCooldownTimerHandle;
     FTimerHandle SkillCooldownTimerHandle_2;
     FTimerHandle ReloadTimerHandle;
+    FTimerHandle LevelTimerHandle;
+    FTimerHandle HUDUpdateTimerHandle;
 
     
     UFUNCTION(BlueprintCallable, Category = "HUD")
@@ -53,6 +55,11 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Upgrade")
     float UpgradeAmount = 10.0f;
 
+    void OnGameOver() {};
+    void UpdateHUD_KillCount();
+    void UpdateHUD_BossKillCount();
+    void UpdateHUD_TimeCount();
+    void UpdateHUD_StageCount();
     void UpdateHUD_Ammo();
     void StartReloadUI();
     void UpdateHUD_Reload();
