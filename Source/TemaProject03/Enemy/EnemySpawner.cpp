@@ -293,11 +293,11 @@ void AEnemySpawner::CheckUpgradeReward()
         );
     }
 
-    // UI 담당자가 업그레이드 선택창을 완성하면 아래 호출을 다시 사용하면 됨.
-    // if (APController* PlayerController = Cast<APController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
-    // {
-    //     PlayerController->ShowUpgradeChoice();
-    // }
+     //UI 담당자가 업그레이드 선택창을 완성하면 아래 호출을 다시 사용하면 됨.
+     if (APController* PlayerController = Cast<APController>(UGameplayStatics::GetPlayerController(GetWorld(), 0)))
+     {
+         PlayerController->ShowUpgradeChoice();
+     }
 }
 
 void AEnemySpawner::OnEnemyKilled()

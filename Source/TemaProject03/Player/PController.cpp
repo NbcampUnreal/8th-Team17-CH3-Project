@@ -102,7 +102,7 @@ void APController::UpdateHUD_StageCount()
         if (AEnemySpawner* Spawner = Cast<AEnemySpawner>(UGameplayStatics::GetActorOfClass(GetWorld(), AEnemySpawner::StaticClass()))) {
             if (UTextBlock* StageCountText = Cast<UTextBlock>(HUDWidgetInstance->GetWidgetFromName(TEXT("StageCount"))))
             {
-                StageCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Spawner->GetBossKillCount())));
+                StageCountText->SetText(FText::FromString(FString::Printf(TEXT("%d"), Spawner->GetCurrentStatLevel())));
             }
         }
     }
@@ -127,6 +127,33 @@ void APController::ShowGameHUD()
 
         UpdateHUD_HP();
     }   
+}
+
+void APController::ShowStatUpgradeHUD()
+{
+    if (!StatUpgradeWidgetInstance)
+    {
+        if (StatUpgradeWidgetClass)
+        {
+            StatUpgradeWidgetInstance = CreateWidget<UUserWidget>(this, StatUpgradeWidgetClass);
+        }
+    }
+
+    if (StatUpgradeWidgetInstance)
+    {
+        StatUpgradeWidgetInstance->AddToViewport();
+
+        bShowMouseCursor = true;
+        SetInputMode(FInputModeUIOnly());
+    }
+}
+
+void APController::HideStatUpgradeHUD()
+{
+    if (StatUpgradeWidgetInstance)
+    {
+        StatUpgradeWidgetInstance->RemoveFromParent();
+    }
 }
 
 void APController::ShowLobbyHUD()
@@ -154,13 +181,19 @@ void APController::ShowLobbyHUD()
             SetInputMode(FInputModeUIOnly());
         }
     }
+
 }
 
-void APController::StartGame()
+void APController::StartGame(bool bIsRestart)
 {
     if (LobbyWidgetInstance)
     {
         LobbyWidgetInstance->RemoveFromParent();
+    }
+
+    if (bIsRestart)
+    {
+        UGameplayStatics::OpenLevel(this, FName("RealLevel1"));
     }
 
     if (APawn* MyPawn = GetPawn())
@@ -170,6 +203,8 @@ void APController::StartGame()
 
     GetWorldTimerManager().SetTimer(LevelTimerHandle, this, &APController::OnGameOver, 9999.0f, false);
     GetWorldTimerManager().SetTimer(HUDUpdateTimerHandle, this, &APController::UpdateHUD_TimeCount, 0.1f, true);
+
+    
 
     ShowGameHUD();
 }
@@ -384,12 +419,14 @@ void APController::UpdateHUD_SkillCooldown_2(bool bIsOnCooldown)
 
 void APController::ShowUpgradeChoice()
 {
-    TriggerUICustomEvent(FName("ShowUpgradeChoice"));
+    ShowStatUpgradeHUD();
 
-    bShowMouseCursor = true;
+    //TriggerUICustomEvent(FName("ShowUpgradeChoice"));
+
+    /*bShowMouseCursor = true;
 
     FInputModeGameAndUI InputMode;
-    SetInputMode(InputMode);
+    SetInputMode(InputMode);*/
 
     SetPause(true);
 }
@@ -401,10 +438,13 @@ void APController::SelectHealthUpgrade()
         PlayerCharacter->UpgradeMaxHealth(UpgradeAmount);
     }
 
-    TriggerUICustomEvent(FName("HideUpgradeChoice"));
+    HideStatUpgradeHUD();
+    ShowGameHUD();
 
-    bShowMouseCursor = false;
-    SetInputMode(FInputModeGameOnly());
+    //TriggerUICustomEvent(FName("HideUpgradeChoice"));
+
+    /*bShowMouseCursor = false;
+    SetInputMode(FInputModeGameOnly());*/
 
     SetPause(false);
 }
@@ -416,10 +456,13 @@ void APController::SelectAttackUpgrade()
         PlayerCharacter->UpgradeAttack(UpgradeAmount);
     }
 
-    TriggerUICustomEvent(FName("HideUpgradeChoice"));
+    HideStatUpgradeHUD();
+    ShowGameHUD();
 
-    bShowMouseCursor = false;
-    SetInputMode(FInputModeGameOnly());
+    //TriggerUICustomEvent(FName("HideUpgradeChoice"));
+
+    /*bShowMouseCursor = false;
+    SetInputMode(FInputModeGameOnly());*/
 
     SetPause(false);
 }

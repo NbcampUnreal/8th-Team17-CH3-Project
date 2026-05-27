@@ -1011,6 +1011,11 @@ void APlayerCharacter::Die()
         DeathFadeDelay,
         false
     );
+
+    if (APController* PlayerController = Cast<APController>(GetController()))
+    {
+        PlayerController->ShowLobbyHUD();
+    }
 }
 
 void APlayerCharacter::StartDeathFade()

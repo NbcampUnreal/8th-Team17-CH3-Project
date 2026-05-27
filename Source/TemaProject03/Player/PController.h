@@ -26,6 +26,11 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
     UUserWidget* LobbyWidgetInstance;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
+    TSubclassOf<UUserWidget> StatUpgradeWidgetClass;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
+    UUserWidget* StatUpgradeWidgetInstance;
+
     FTimerHandle SkillCooldownTimerHandle;
     FTimerHandle SkillCooldownTimerHandle_2;
     FTimerHandle ReloadTimerHandle;
@@ -35,10 +40,14 @@ public:
     
     UFUNCTION(BlueprintCallable, Category = "HUD")
     void ShowGameHUD();
+    UFUNCTION(BlueprintCallable, Category = "HUD")
+    void ShowStatUpgradeHUD();
+    UFUNCTION(BlueprintCallable, Category = "HUD")
+    void HideStatUpgradeHUD();
     UFUNCTION(BlueprintCallable, Category = "Menu")
     void ShowLobbyHUD();
     UFUNCTION(BlueprintCallable, Category = "Menu")
-    void StartGame();
+    void StartGame(bool bIsRestart);
 
     UFUNCTION(BlueprintCallable)
     void UpdateHUD_HP();
