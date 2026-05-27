@@ -121,6 +121,13 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
         // 점프 착지 목표 위치
         FVector JumpAttackTargetLocation;
 
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy|Hit")
+        float HitRecoverTime = 0.4f;
+
+        FTimerHandle HitRecoverTimerHandle;
+
+        void RecoverFromHit();
+
         // =========================
         // Pawn Sensing Setting
         // =========================
@@ -323,7 +330,7 @@ class TEMAPROJECT03_API AEnemyCharacter : public ACharacter
 
         // 적 죽음
         UFUNCTION(BlueprintCallable)
-        void DestroyEnemy();
+        virtual void DestroyEnemy();
 
         UFUNCTION(BlueprintCallable)
         virtual void OnHitEnd();

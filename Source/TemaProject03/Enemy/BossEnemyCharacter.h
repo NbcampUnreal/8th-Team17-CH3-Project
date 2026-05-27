@@ -44,6 +44,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss|State")
     bool bIsIntroPlaying = true;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Boss|State")
+    bool bBossKillCounted = false;
+
     // =========================
     // Dash Pattern
     // =========================
@@ -112,6 +115,7 @@ protected:
     void ResetPatternDelay();
 
 public:
+    virtual void DestroyEnemy() override;
     virtual void OnAttackEnd() override;
 
     UFUNCTION(BlueprintCallable)

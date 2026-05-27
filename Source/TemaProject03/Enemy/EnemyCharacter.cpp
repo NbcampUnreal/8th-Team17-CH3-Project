@@ -74,6 +74,16 @@ void AEnemyCharacter::Tick(float DeltaTime)
     HandleEnemyState(DeltaTime);
 }
 
+void AEnemyCharacter::RecoverFromHit()
+{
+    if (EnemyState != EEnemyState::Hit)
+    {
+        return;
+    }
+
+    SetEnemyState(EEnemyState::Chase);
+}
+
 void AEnemyCharacter::PatrolMove()
 {
     if (!bCanPatrol)
@@ -619,6 +629,8 @@ void AEnemyCharacter::OnHitEnd()
         return;
     }
 
+    GetWorldTimerManager().ClearTimer(HitRecoverTimerHandle);
+
     SetEnemyState(EEnemyState::Chase);
 }
 
@@ -789,6 +801,15 @@ void AEnemyCharacter::ApplyDamage(float DamageAmount)
     StopEnemyMovement();
 
     SetEnemyState(EEnemyState::Hit);
+
+    GetWorldTimerManager().ClearTimer(HitRecoverTimerHandle);
+    GetWorldTimerManager().SetTimer(
+        HitRecoverTimerHandle,
+        this,
+        &AEnemyCharacter::RecoverFromHit,
+        HitRecoverTime,
+        false
+    );
 }
 
 void AEnemyCharacter::SetOwnerSpawner(AEnemySpawner* InSpawner)

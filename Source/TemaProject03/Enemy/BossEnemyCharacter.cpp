@@ -114,12 +114,18 @@ void ABossEnemyCharacter::OnHitEnd()
 
 void ABossEnemyCharacter::ApplyDamage(float DamageAmount)
 {
+    if (bBossKillCounted)
+    {
+        return;
+    }
+
     Super::ApplyDamage(DamageAmount);
 
     if (EnemyState == EEnemyState::Dead)
     {
         BossState = EBossState::Dead;
         bIsUsingPattern = false;
+        bBossKillCounted = true;
 
         if (OwnerSpawner)
         {
@@ -132,6 +138,7 @@ void ABossEnemyCharacter::ApplyDamage(float DamageAmount)
     if (EnemyState == EEnemyState::Hit)
     {
         BossState = EBossState::Hit;
+        bIsUsingPattern = false;
         return;
     }
 }
@@ -139,6 +146,11 @@ void ABossEnemyCharacter::ApplyDamage(float DamageAmount)
 void ABossEnemyCharacter::ResetPatternDelay()
 {
     bCanUsePattern = true;
+}
+
+void ABossEnemyCharacter::DestroyEnemy()
+{
+    Destroy();
 }
 
 void ABossEnemyCharacter::OnAttackEnd()
