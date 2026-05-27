@@ -14,7 +14,6 @@
 #include "Sound/SoundBase.h"
 #include "Particles/ParticleSystem.h"
 
-#include "TemaProject03/BattelSystem/WeaponBox.h"
 #include "DrawDebugHelpers.h"
 #include "TemaProject03/BattelSystem/WeaponBase.h"
 #include "WeaponPickup.h"
@@ -47,7 +46,7 @@ APlayerCharacter::APlayerCharacter()
     FirstPersonArmsMesh->bCastDynamicShadow = false;
     FirstPersonArmsMesh->CastShadow = false;
 
-    // 스킬 컴포넌트 생성 (추가됨)
+    // 스킬 컴포넌트 생성
     SkillComp = CreateDefaultSubobject<USkillComponent>(TEXT("SkillComp"));
 
     bUseControllerRotationYaw = true;
@@ -106,18 +105,14 @@ void APlayerCharacter::BeginPlay()
         GetCharacterMovement()->MaxWalkSpeed = NormalSpeed;
     }
 
-    // 무기 스폰 및 부착 로직 추가
+    // 게임 시작 시 기본 무기로 피스톨 장착
     if (PistolClass)
     {
-        PistolWeapon =
-            GetWorld()->SpawnActor<AWeaponBase>(PistolClass);
-
-        if (PistolWeapon)
-        {
-            PistolWeapon->SetOwner(this);
-
-            EquipWeapon(PistolWeapon);
-        }
+        EquipWeapon(PistolClass);
+    }
+    else if (WeaponClass)
+    {
+        EquipWeapon(WeaponClass);
     }
 
     // 게임 시작 시 Ammo / SkillCooldown 업데이트
@@ -165,7 +160,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         // 리로드
         EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &APlayerCharacter::StartReload);
 
-        // 숫자키 무기 장착
+        // 1번 / 2번 / 3번 / 4번 무기 장착
+        if (SniperAction)
+        {
+            EnhancedInput->BindAction(SniperAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipSniper);
+        }
+
         if (RifleAction)
         {
             EnhancedInput->BindAction(RifleAction, ETriggerEvent::Started, this, &APlayerCharacter::EquipRifle);
@@ -191,56 +191,6 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         if (SkillAction)
         {
             EnhancedInput->BindAction(SkillAction, ETriggerEvent::Started, this, &APlayerCharacter::UseSkillInput);
-        }
-
-        if (SelectWeapon1Action)
-        {
-            EnhancedInput->BindAction(
-                SelectWeapon1Action,
-                ETriggerEvent::Started,
-                this,
-                &APlayerCharacter::SelectRandomWeapon1
-            );
-        }
-
-        if (SelectWeapon2Action)
-        {
-            EnhancedInput->BindAction(
-                SelectWeapon2Action,
-                ETriggerEvent::Started,
-                this,
-                &APlayerCharacter::SelectRandomWeapon2
-            );
-        }
-
-        if (SelectWeapon3Action)
-        {
-            EnhancedInput->BindAction(
-                SelectWeapon3Action,
-                ETriggerEvent::Started,
-                this,
-                &APlayerCharacter::SelectRandomWeapon3
-            );
-        }
-
-        if (SetSlot1Action)
-        {
-            EnhancedInput->BindAction(
-                SetSlot1Action,
-                ETriggerEvent::Started,
-                this,
-                &APlayerCharacter::PutWeaponInSlot1
-            );
-        }
-
-        if (SetSlot2Action)
-        {
-            EnhancedInput->BindAction(
-                SetSlot2Action,
-                ETriggerEvent::Started,
-                this,
-                &APlayerCharacter::PutWeaponInSlot2
-            );
         }
     }
 }
@@ -286,6 +236,7 @@ bool APlayerCharacter::GetRPGMuzzleTransform(FTransform& OutMuzzleTransform) con
 void APlayerCharacter::Move(const FInputActionValue& Value)
 {
     FVector2D MovementVector = Value.Get<FVector2D>();
+
     if (Controller != nullptr)
     {
         AddMovementInput(GetActorForwardVector(), MovementVector.X);
@@ -296,6 +247,7 @@ void APlayerCharacter::Move(const FInputActionValue& Value)
 void APlayerCharacter::Look(const FInputActionValue& Value)
 {
     FVector2D LookAxisVector = Value.Get<FVector2D>();
+
     if (Controller != nullptr)
     {
         AddControllerYawInput(LookAxisVector.X);
@@ -305,40 +257,130 @@ void APlayerCharacter::Look(const FInputActionValue& Value)
 
 float APlayerCharacter::GetRemainingCooldown() const
 {
-    if (!bIsDashOnCooldown) return 0.0f;
+    if (!bIsDashOnCooldown)
+    {
+        return 0.0f;
+    }
+
     return GetWorld()->GetTimerManager().GetTimerRemaining(DashCooldownTimerHandle);
 }
 
 void APlayerCharacter::EquipWeapon()
 {
-    if (WeaponClass)
-    {
-        AWeaponBase* NewWeapon = GetWorld()->SpawnActor<AWeaponBase>(WeaponClass);
+    EquipWeapon(WeaponClass);
+}
 
-        EquipWeapon(NewWeapon);
-    }
+void APlayerCharacter::EquipSniper()
+{
+    EquipWeapon(SniperClass);
 }
 
 void APlayerCharacter::EquipRifle()
 {
-    EquipWeapon(Slot1Weapon);
+    EquipWeapon(RifleClass);
 }
 
 void APlayerCharacter::EquipShotgun()
 {
-    EquipWeapon(Slot2Weapon);
+    EquipWeapon(ShotgunClass);
 }
 
 void APlayerCharacter::EquipPistol()
 {
-    EquipWeapon(PistolWeapon);
+    EquipWeapon(PistolClass);
+}
+
+void APlayerCharacter::EquipWeapon(TSubclassOf<AWeaponBase> NewWeaponClass)
+{
+    if (!NewWeaponClass || !GetWorld())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] NewWeaponClass is NULL"));
+        return;
+    }
+
+    if (CurrentWeapon)
+    {
+        CurrentWeapon->StopFire();
+        SavedAmmoMap.Add(CurrentWeapon->GetClass(), CurrentWeapon->CurrentAmmo);
+        CurrentWeapon->Destroy();
+        CurrentWeapon = nullptr;
+    }
+
+    WeaponClass = NewWeaponClass;
+
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.Owner = this;
+    SpawnParams.Instigator = this;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    CurrentWeapon = GetWorld()->SpawnActor<AWeaponBase>(
+        NewWeaponClass,
+        SpawnParams
+    );
+
+    if (!CurrentWeapon)
+    {
+        CurrentWeaponType = EWeaponType::None;
+        UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] Failed to spawn weapon"));
+        return;
+    }
+
+    CurrentWeapon->SetOwner(this);
+    CurrentWeapon->SetActorHiddenInGame(false);
+    CurrentWeapon->SetActorEnableCollision(false);
+
+    CurrentWeaponType = CurrentWeapon->WeaponType;
+
+    USkeletalMeshComponent* AttachMesh = nullptr;
+
+    if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
+    {
+        AttachMesh = FirstPersonArmsMesh;
+    }
+    else
+    {
+        AttachMesh = GetMesh();
+    }
+
+    if (AttachMesh)
+    {
+        CurrentWeapon->AttachToComponent(
+            AttachMesh,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+            WeaponAttachSocketName
+        );
+    }
+    else if (CameraComp)
+    {
+        CurrentWeapon->AttachToComponent(
+            CameraComp,
+            FAttachmentTransformRules::SnapToTargetNotIncludingScale
+        );
+    }
+
+    CurrentWeapon->ApplyWeaponAttachTransform();
+    CurrentWeapon->InitWeapon(this);
+
+    if (SavedAmmoMap.Contains(NewWeaponClass))
+    {
+        CurrentWeapon->CurrentAmmo = SavedAmmoMap[NewWeaponClass];
+    }
+
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->UpdateHUD_Ammo();
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] Equipped: %s"), *CurrentWeapon->GetName());
 }
 
 // 대시 로직: 공중 대시 가능 버전 + 쿨타임 적용
 void APlayerCharacter::Dash(const FInputActionValue& Value)
 {
-    // 대시 중이거나 쿨타임 중이면 입력 무시
-    if (bIsDashing || bIsDashOnCooldown) return;
+    if (bIsDashing || bIsDashOnCooldown)
+    {
+        return;
+    }
 
     if (DashMontage)
     {
@@ -346,33 +388,26 @@ void APlayerCharacter::Dash(const FInputActionValue& Value)
     }
 
     DashDirection = GetLastMovementInputVector().GetSafeNormal();
+
     if (DashDirection.IsNearlyZero())
     {
         DashDirection = GetActorForwardVector();
     }
 
     bIsDashing = true;
-    bIsDashOnCooldown = true; // 대시 시작과 동시에 쿨타임 시작
+    bIsDashOnCooldown = true;
 
     if (UCharacterMovementComponent* Movement = GetCharacterMovement())
     {
         OriginalMaxWalkSpeed = Movement->MaxWalkSpeed;
         OriginalMaxAcceleration = Movement->MaxAcceleration;
 
-        //  공중 대시를 위해 이동 모드를 Flying으로 변경 (중력 무시)
         Movement->SetMovementMode(MOVE_Flying);
-
-        //  속도 및 가속도 설정
-        Movement->MaxFlySpeed = DashSpeed; // Flying 모드일 땐 MaxFlySpeed를 사용.
+        Movement->MaxFlySpeed = DashSpeed;
         Movement->MaxAcceleration = 10000.f;
-
-        //  대시 시작 시 순간적인 속도 초기화 (이전 관성 제거)
         Movement->Velocity = DashDirection * DashSpeed;
 
-        // 대시 종료 타이머
         GetWorldTimerManager().SetTimer(DashTimerHandle, this, &APlayerCharacter::StopDash, DashDuration, false);
-
-        // 쿨타임 타이머 (대시 시작 시점부터 DashCooldown초 후 해제)
         GetWorldTimerManager().SetTimer(DashCooldownTimerHandle, this, &APlayerCharacter::ResetDashCooldown, DashCooldown, false);
 
         if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
@@ -390,14 +425,11 @@ void APlayerCharacter::StopDash()
     {
         Movement->MaxWalkSpeed = OriginalMaxWalkSpeed;
         Movement->MaxAcceleration = OriginalMaxAcceleration;
-
         Movement->SetMovementMode(MOVE_Walking);
-
         Movement->Velocity = Movement->Velocity.GetSafeNormal() * OriginalMaxWalkSpeed;
     }
 }
 
-// 쿨타임 종료: 다시 대시 가능 상태로 전환
 void APlayerCharacter::ResetDashCooldown()
 {
     bIsDashOnCooldown = false;
@@ -452,74 +484,6 @@ void APlayerCharacter::SetNearbyWeaponPickup(AWeaponPickup* NewPickup)
 void APlayerCharacter::Interact()
 {
     UE_LOG(LogTemp, Warning, TEXT("INTERACT KEY PRESSED"));
-
-    if (NearbyWeaponBox)
-    {
-        NearbyWeaponBox->OpenWeaponBox(this);
-        return;
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("[Interact] No nearby weapon box."));
-}
-
-void APlayerCharacter::EquipWeapon(AWeaponBase* NewWeapon)
-{
-    if (!NewWeapon || !GetWorld())
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] NewWeapon is NULL"));
-        return;
-    }
-
-    if (CurrentWeapon)
-    {
-        CurrentWeapon->StopFire();
-        CurrentWeapon->SetActorHiddenInGame(true);
-        CurrentWeapon->SetActorEnableCollision(false);
-    }
-
-    CurrentWeapon = NewWeapon;
-    CurrentWeapon->SetOwner(this);
-    CurrentWeapon->SetActorHiddenInGame(false);
-    CurrentWeapon->SetActorEnableCollision(false);
-
-    CurrentWeaponType = CurrentWeapon->WeaponType;
-
-    USkeletalMeshComponent* AttachMesh = nullptr;
-
-    if (FirstPersonArmsMesh && FirstPersonArmsMesh->GetSkeletalMeshAsset())
-    {
-        AttachMesh = FirstPersonArmsMesh;
-    }
-    else
-    {
-        AttachMesh = GetMesh();
-    }
-
-    if (AttachMesh)
-    {
-        CurrentWeapon->AttachToComponent(
-            AttachMesh,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-            WeaponAttachSocketName
-        );
-    }
-    else
-    {
-        CurrentWeapon->AttachToComponent(
-            CameraComp,
-            FAttachmentTransformRules::SnapToTargetNotIncludingScale
-        );
-    }
-
-    CurrentWeapon->ApplyWeaponAttachTransform();
-    CurrentWeapon->InitWeapon(this);
-
-    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
-    {
-        PlayerController->UpdateHUD_Ammo();
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("[EquipWeapon] Equipped: %s"), *CurrentWeapon->GetName());
 }
 
 void APlayerCharacter::DropCurrentWeapon()
@@ -556,111 +520,7 @@ void APlayerCharacter::DropCurrentWeapon()
 
     CurrentWeapon->Destroy();
     CurrentWeapon = nullptr;
-
-    // 현재 무기가 없으므로 ABP에는 None 상태 전달
     CurrentWeaponType = EWeaponType::None;
-}
-
-void APlayerCharacter::SetNearbyWeaponBox(AWeaponBox* NewBox)
-{
-    NearbyWeaponBox = NewBox;
-}
-
-void APlayerCharacter::SetWeaponToSlot(AWeaponBase* NewWeapon, int32 SlotIndex)
-{
-    if (!NewWeapon)
-    {
-        return;
-    }
-
-    switch (SlotIndex)
-    {
-    case 1:
-        Slot1Weapon = NewWeapon;
-        break;
-
-    case 2:
-        Slot2Weapon = NewWeapon;
-        break;
-    }
-
-    EquipWeapon(NewWeapon);
-}
-
-void APlayerCharacter::SelectWeapon(AWeaponBase* NewWeapon)
-{
-    if (!NewWeapon)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Selected weapon is NULL"));
-        return;
-    }
-
-    PendingSelectedWeapon = NewWeapon;
-
-    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Selected: %s"), *NewWeapon->GetName());
-}
-
-void APlayerCharacter::SetSelectedWeapon(TSubclassOf<AWeaponBase> NewWeapon)
-{
-    SelectedWeapon = NewWeapon;
-}
-
-void APlayerCharacter::SelectRandomWeapon1()
-{
-    if (CurrentRandomWeapons.Num() > 0)
-    {
-        SelectWeapon(CurrentRandomWeapons[0]);
-
-        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 1"));
-    }
-}
-
-void APlayerCharacter::SelectRandomWeapon2()
-{
-    if (CurrentRandomWeapons.Num() > 1)
-    {
-        SelectWeapon(CurrentRandomWeapons[1]);
-
-        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 2"));
-    }
-}
-
-void APlayerCharacter::SelectRandomWeapon3()
-{
-    if (CurrentRandomWeapons.Num() > 2)
-    {
-        SelectWeapon(CurrentRandomWeapons[2]);
-
-        UE_LOG(LogTemp, Warning, TEXT("Selected Random Weapon 3"));
-    }
-}
-
-void APlayerCharacter::PutWeaponInSlot1()
-{
-    if (!PendingSelectedWeapon)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] No pending weapon for Slot 1"));
-        return;
-    }
-
-    SetWeaponToSlot(PendingSelectedWeapon, 1);
-    PendingSelectedWeapon = nullptr;
-
-    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Put In Slot 1"));
-}
-
-void APlayerCharacter::PutWeaponInSlot2()
-{
-    if (!PendingSelectedWeapon)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] No pending weapon for Slot 2"));
-        return;
-    }
-
-    SetWeaponToSlot(PendingSelectedWeapon, 2);
-    PendingSelectedWeapon = nullptr;
-
-    UE_LOG(LogTemp, Warning, TEXT("[WeaponBox] Weapon Put In Slot 2"));
 }
 
 void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
@@ -694,12 +554,10 @@ void APlayerCharacter::PlayArmsMontage(UAnimMontage* MontageToPlay)
 
 void APlayerCharacter::ApplyWeaponRecoil(float RecoilPitch, float RecoilYaw)
 {
-    // 실제 조준 반동은 컨트롤러 회전에 적용
     AddControllerPitchInput(-RecoilPitch);
     AddControllerYawInput(FMath::RandRange(-RecoilYaw, RecoilYaw));
 }
 
-// 스킬 실행 함수 구현
 void APlayerCharacter::UseSkillInput()
 {
     if (!SkillComp || !SkillComp->CurrentSkill)
@@ -707,14 +565,12 @@ void APlayerCharacter::UseSkillInput()
         return;
     }
 
-    // 쿨타임 중이면 RPG도 꺼내지 않음
     if (!SkillComp->CurrentSkill->CanUseSkill())
     {
         UE_LOG(LogTemp, Warning, TEXT("[RPG] Skill is on cooldown. RPG will not equip."));
         return;
     }
 
-    // 스킬 사용 중에는 들고 있던 총을 숨기고 RPG 액터를 장착함
     const bool bRPGEquipped = EquipRPG();
 
     bool bSkillUsed = SkillComp->UseSkill();
@@ -731,7 +587,6 @@ void APlayerCharacter::UseSkillInput()
         bRPGEquipped ? TEXT("true") : TEXT("false"),
         bSkillUsed ? TEXT("true") : TEXT("false"));
 
-    // RPG가 장착되었다면 스킬 성공/실패와 관계없이 일정 시간 뒤 원래 총으로 복구
     if (bRPGEquipped)
     {
         GetWorldTimerManager().ClearTimer(RPGUnequipTimerHandle);
@@ -744,14 +599,12 @@ void APlayerCharacter::UseSkillInput()
         );
     }
 
-    // RPG 장착도 실패했고 스킬도 실패했다면 복구만 보장
     if (!bRPGEquipped && !bSkillUsed)
     {
         UnequipRPG();
     }
 }
 
-// RPG 액터 장착
 bool APlayerCharacter::EquipRPG()
 {
     if (!GetWorld())
@@ -796,21 +649,18 @@ bool APlayerCharacter::EquipRPG()
         return false;
     }
 
-    // RPG 사용 중에는 일반 총 발사를 멈추고 총을 숨김
     if (CurrentWeapon)
     {
         CurrentWeapon->StopFire();
         CurrentWeapon->SetActorHiddenInGame(true);
     }
 
-    // 지금 실제로 쓰는 팔/몸 Mesh는 FirstPersonArmsMesh가 아니라 기본 Mesh라서 GetMesh()를 숨김
     if (GetMesh())
     {
         GetMesh()->SetHiddenInGame(true, true);
         GetMesh()->SetVisibility(false, true);
     }
 
-    // 카메라에 붙인 뒤, BP_PlayerCharacter의 RPGAttach 값으로 위치/회전/크기를 적용
     EquippedRPGActor->AttachToComponent(CameraComp, FAttachmentTransformRules::KeepRelativeTransform);
     EquippedRPGActor->SetActorRelativeLocation(RPGAttachLocation);
     EquippedRPGActor->SetActorRelativeRotation(RPGAttachRotation);
@@ -822,7 +672,6 @@ bool APlayerCharacter::EquipRPG()
     return true;
 }
 
-// RPG 장착 해제
 void APlayerCharacter::UnequipRPG()
 {
     if (EquippedRPGActor)
@@ -834,12 +683,9 @@ void APlayerCharacter::UnequipRPG()
     if (CurrentWeapon)
     {
         CurrentWeapon->SetActorHiddenInGame(false);
-
-        // RPG 사용 중 무기 반동 위치가 남아있을 수 있으므로 원래 부착값으로 복구
         CurrentWeapon->ApplyWeaponAttachTransform();
     }
 
-    // RPG 사용이 끝나면 기본 Mesh를 다시 보이게 복구
     if (GetMesh())
     {
         GetMesh()->SetHiddenInGame(false, true);
@@ -975,7 +821,6 @@ void APlayerCharacter::Die()
     {
         DisableInput(PlayerController);
 
-        // 죽을 때 1인칭 카메라를 3인칭 위치로 뒤로 빼서 사망 애니메이션이 보이게
         if (SpringArmComp)
         {
             SpringArmComp->TargetArmLength = 350.0f;
@@ -1003,7 +848,6 @@ void APlayerCharacter::Die()
         DeathMesh->SetOwnerNoSee(false);
     }
 
-    // 죽는 애니메이션을 잠깐 보여준 뒤 화면을 검게 페이드아웃
     GetWorldTimerManager().SetTimer(
         DeathFadeTimerHandle,
         this,
