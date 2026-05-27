@@ -739,7 +739,7 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
 
     UE_LOG(LogTemp, Warning, TEXT("HP: %f"), CurrentHealth);
 
-    if (GEngine)
+    /*if (GEngine)
     {
         GEngine->AddOnScreenDebugMessage(
             -1,
@@ -747,7 +747,7 @@ void APlayerCharacter::ApplyDamage(float DamageAmount)
             FColor::Red,
             FString::Printf(TEXT("HP: %f"), CurrentHealth)
         );
-    }
+    }*/
 
     if (CurrentHealth <= 0.0f)
     {

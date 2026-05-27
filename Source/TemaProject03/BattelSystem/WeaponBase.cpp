@@ -196,9 +196,9 @@ void AWeaponBase::Fire()
     FVector MuzzleLocation = GetMuzzleLocation();
     FRotator MuzzleRotation = GetMuzzleRotation();
 
-    DrawDebugLine(GetWorld(), Start, bHit ? Hit.Location : End, FColor::Red, false, 1.f);
+    /*DrawDebugLine(GetWorld(), Start, bHit ? Hit.Location : End, FColor::Red, false, 1.f);
     DrawDebugLine(GetWorld(), MuzzleLocation, bHit ? Hit.Location : End, FColor::Yellow, false, 1.f);
-    DrawDebugSphere(GetWorld(), MuzzleLocation, 5.f, 12, FColor::Blue, false, 1.f);
+    DrawDebugSphere(GetWorld(), MuzzleLocation, 5.f, 12, FColor::Blue, false, 1.f);*/
 
     if (FireSound)
     {
@@ -212,7 +212,7 @@ void AWeaponBase::Fire()
 
     if (bHit)
     {
-        DrawDebugSphere(GetWorld(), Hit.Location, 20.f, 16, FColor::Green, false, 2.f);
+        //DrawDebugSphere(GetWorld(), Hit.Location, 20.f, 16, FColor::Green, false, 2.f);
 
         UE_LOG(LogTemp, Warning, TEXT("Hit Location: %s"), *Hit.Location.ToString());
         UE_LOG(LogTemp, Warning, TEXT("HIT START"));
@@ -510,7 +510,7 @@ void AWeaponBase::FireShotgun()
 
         bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params);
 
-        DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.f);
+        //DrawDebugLine(GetWorld(), Start, End, FColor::Orange, false, 1.f);
 
         if (bHit)
         {
@@ -524,9 +524,13 @@ void AWeaponBase::FireShotgun()
 
                 UE_LOG(LogTemp, Warning, TEXT("Shotgun Hit"));
             }
+            
         }
     }
-
+    if (APController* PlayerController = Cast<APController>(GetWorld()->GetFirstPlayerController()))
+    {
+        PlayerController->TriggerUICustomEvent(FName("ShowHitMarker"));
+    }
     GetWorld()->GetTimerManager().SetTimer(FireRateTimerHandle, this, &AWeaponBase::ResetFire, WeaponData.FireRate, false);
 }
 
@@ -628,7 +632,7 @@ void AWeaponBase::FireBazooka()
     // Projectile 생성
     ABazookaProjectile* Projectile = GetWorld()->SpawnActor<ABazookaProjectile>(BazookaProjectileClass, SpawnLocation, SpawnRotation);
 
-    // 생성 성공 시
+    // 생성 성공
     if (Projectile)
     {
         Projectile->SetDamage(WeaponData.Damage);
